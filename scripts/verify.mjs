@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -73,27 +73,81 @@ function main() {
   steps.push(checkTrackedSecrets());
   steps.push(runCmd(npmCmd, ['run', 'typecheck'], 'TypeScript typecheck'));
   steps.push(runCmd(npmCmd, ['run', 'build'], 'Build web + headless'));
-  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless test suite'));
+  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract test suite'));
 
-  // Determinism check: run headless twice with identical args and compare SHA-256
-  const run1 = runCmd(process.execPath, ['dist/headless.mjs', '--ticks', '120'], 'Headless determinism run #1');
-  const run2 = runCmd(process.execPath, ['dist/headless.mjs', '--ticks', '120'], 'Headless determinism run #2');
+  // Determinism check: run Test Contract v1.0 headless CLI twice on same seed & compare SHA-256
+  const tmpDir = mkdtempSync(join(os.tmpdir(), 'ddl-verify-'));
+  try {
+    const out1 = join(tmpDir, 'run1.jsonl');
+    const out2 = join(tmpDir, 'run2.jsonl');
+    const winOut = join(tmpDir, 'win.jsonl');
 
-  if (run1.ok && run2.ok) {
-    const hash1 = createHash('sha256').update(run1.output).digest('hex');
-    const hash2 = createHash('sha256').update(run2.output).digest('hex');
-    const identical = run1.output === run2.output && hash1 === hash2;
-    steps.push({
-      ok: identical,
-      label: 'Headless determinism comparison',
-      command: 'sha256(run1) === sha256(run2)',
-      elapsedMs: run1.elapsedMs + run2.elapsedMs,
-      output: identical
-        ? `IDENTICAL (sha256=${hash1})\noutput=${run1.output}`
-        : `MISMATCH!\nrun1(${hash1}): ${run1.output}\nrun2(${hash2}): ${run2.output}`,
-    });
-  } else {
-    steps.push(run1, run2);
+    const run1 = runCmd(
+      process.execPath,
+      ['dist/headless.mjs', '--seed', '42', '--night', '1', '--ticks', '600', '--out', out1],
+      'Headless determinism run #1',
+    );
+    const run2 = runCmd(
+      process.execPath,
+      ['dist/headless.mjs', '--seed', '42', '--night', '1', '--ticks', '600', '--out', out2],
+      'Headless determinism run #2',
+    );
+
+    if (run1.ok && run2.ok) {
+      const content1 = readFileSync(out1, 'utf8');
+      const content2 = readFileSync(out2, 'utf8');
+      const hash1 = createHash('sha256').update(content1).digest('hex');
+      const hash2 = createHash('sha256').update(content2).digest('hex');
+      const identical = content1 === content2 && hash1 === hash2;
+      const lines = content1.trim().split(/\r?\n/);
+      steps.push({
+        ok: identical,
+        label: 'Headless determinism comparison (seed=42, night=1, ticks=600)',
+        command: 'sha256(run1.jsonl) === sha256(run2.jsonl)',
+        elapsedMs: run1.elapsedMs + run2.elapsedMs,
+        output: identical
+          ? `IDENTICAL (sha256=${hash1}, lines=${lines.length})\nend=${lines[lines.length - 1]}`
+          : `MISMATCH!\nrun1=${hash1}\nrun2=${hash2}`,
+      });
+    } else {
+      steps.push(run1, run2);
+    }
+
+    // End-to-end Win scenario smoke check
+    const winRun = runCmd(
+      process.execPath,
+      [
+        'dist/headless.mjs',
+        '--seed',
+        '42',
+        '--night',
+        '1',
+        '--scenario',
+        'tests/scenarios/win-all-lit.scenario.json',
+        '--inputs',
+        'tests/scenarios/win-all-lit.inputs.json',
+        '--ticks',
+        '300',
+        '--out',
+        winOut,
+      ],
+      'Headless win scenario (win-all-lit)',
+    );
+    if (winRun.ok) {
+      const winLines = readFileSync(winOut, 'utf8').trim().split(/\r?\n/);
+      const endLine = JSON.parse(winLines[winLines.length - 1]);
+      steps.push({
+        ok: endLine.type === 'end' && endLine.state === 'won',
+        label: 'Headless win scenario assertion',
+        command: 'win-all-lit.scenario.json + win-all-lit.inputs.json',
+        elapsedMs: winRun.elapsedMs,
+        output: `lines=${winLines.length}\nend=${winLines[winLines.length - 1]}`,
+      });
+    } else {
+      steps.push(winRun);
+    }
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
   }
 
   const allPassed = steps.every((s) => s.ok);

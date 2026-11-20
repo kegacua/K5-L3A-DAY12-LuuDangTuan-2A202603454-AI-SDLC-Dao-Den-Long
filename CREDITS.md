@@ -8,9 +8,7 @@
 - **esbuild** — MIT License (https://esbuild.github.io/) — Bundling headless Node.js CLI.
 
 ## 3D Models, Textures & Audio
-- **CP0:** Procedural geometry built in Three.js (no external assets).
-- *(Update each phase whenever adding procedural audio, shaders, or CC0/CC-BY/MIT assets.)*
+- **CP0 & Phase 1:** Toàn bộ hình khối 3D (Mây với nón lá và đèn lồng nhỏ, 5 Đèn Lồng Lớn, Đảo Bến, biển mây, đom đóm, Bóng Mực) và âm thanh Web Audio (`src/client/audio.ts`) đều được tạo thủ tục (procedural) trong mã nguồn, không sử dụng asset bản quyền bên ngoài.
 
 ## AI Tools Used
-- **Antigravity (Google DeepMind coding assistant)** — Architecture scaffolding, code generation, verification harness, and code review (supervised and verified by author).
-- *(Update if additional AI tools or generative asset tools are used in Phases 1–4.)*
+- **Antigravity (Google DeepMind coding assistant)** — Khởi tạo kiến trúc, viết mã, xây dựng bộ kiểm chứng & harness, và chạy subagent rà soát độc lập (Contract Auditor) dưới sự kiểm soát và xác minh trực tiếp của tác giả.

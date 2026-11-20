@@ -1,0 +1,63 @@
+=== VERIFY REPORT (phase-1) ===
+Timestamp: 2026-11-20T08:09:39.802Z
+Git HEAD:  82cf698
+Node:      v20.8.1
+Platform:  win32 x64 (AMD Ryzen 7 PRO 4750U with Radeon Graphics)
+Status:    PASS
+
+[PASS] Secret file scan (80ms)
+$ git ls-files
+OK (34 tracked files checked, 0 .env files)
+
+[PASS] TypeScript typecheck (8097ms)
+$ npm.cmd run typecheck
+> dao-den-long@0.1.0 typecheck
+> tsc --noEmit
+
+[PASS] Build web + headless (12166ms)
+$ npm.cmd run build
+> dao-den-long@0.1.0 build
+> npm run build:web && npm run build:headless
+
+
+> dao-den-long@0.1.0 build:web
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 10 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/web/[22m[32mindex.html                [39m[1m[2m  6.80 kB[22m[1m[22m[2m │ gzip:   2.07 kB[22m
+[2mdist/web/[22m[36massets/index-BeCuXhpT.js  [39m[1m[33m501.80 kB[39m[22m[2m │ gzip: 129.07 kB[22m
+[32m✓ built in 1.81s[39m
+
+> dao-den-long@0.1.0 build:headless
+> node scripts/build-headless.mjs
+
+[PASS] Unit & headless contract test suite (6161ms)
+$ npm.cmd test
+> dao-den-long@0.1.0 test
+> vitest run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/tuan-D/Document-D/AI_thuc_chien/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long[39m
+
+ [32m✓[39m tests/architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 14[2mms[22m[39m
+ [32m✓[39m tests/simulation.unit.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 58[2mms[22m[39m
+ [32m✓[39m tests/headless.contract.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 858[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+[2m   Start at [22m 15:09:37
+[2m   Duration [22m 2.19s[2m (transform 361ms, setup 0ms, collect 566ms, tests 929ms, environment 1ms, prepare 1.72s)[22m
+
+[PASS] Headless determinism comparison (seed=42, night=1, ticks=600) (247ms)
+$ sha256(run1.jsonl) === sha256(run2.jsonl)
+IDENTICAL (sha256=1e0639d0ca22eaa0c42bcbece891c977015390fd14ad0f05a4fa57e88896a784, lines=56)
+end={"type":"end","ticks":500,"state":"lost","score":0}
+
+[PASS] Headless win scenario assertion (104ms)
+$ win-all-lit.scenario.json + win-all-lit.inputs.json
+lines=22
+end={"type":"end","ticks":141,"state":"won","score":874}

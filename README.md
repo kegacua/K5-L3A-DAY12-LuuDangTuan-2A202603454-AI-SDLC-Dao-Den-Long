@@ -1,65 +1,89 @@
-# Đảo Đèn Lồng — Day 12 AI SDLC
+# Đảo Đèn Lồng — Day 12 AI SDLC (Phase 1)
 
 > **Video demo:** *(Sẽ cập nhật link video `.mp4` dưới 5 phút tại Release `v1.0.0` ở Phase 4)*
-> **Trạng thái hiện tại:** Checkpoint 0 (Chuẩn bị môi trường, kiến trúc 3D + headless tất định, harness AI và CI).
+> **Trạng thái hiện tại:** Phase 1 — Đêm 1: Đảo Bến (PRD-0 & Test Contract v1.0).
 
-Game 3D góc nhìn thứ ba **Đảo Đèn Lồng** xây dựng bằng **TypeScript + Three.js + Vite + Node.js (headless) + Vitest**, tương thích **macOS, Linux và Windows**.
+Game 3D góc nhìn thứ ba **Đảo Đèn Lồng**: điều khiển **Mây** (đội nón lá có treo đèn lồng nhỏ) gom đom đóm, thắp sáng 5 Đèn Lồng Lớn trên **Đảo Bến**, dùng **Tỏa sáng** xua **Bóng Mực** và bảo vệ ngọn lửa của mình trước khi hết đêm. Chạy được trên **macOS, Linux và Windows**.
 
 ---
 
 ## Cài đặt & chạy nhanh (≤ 3 lệnh)
 
-Yêu cầu: **Node.js ≥ 20** (`node -v`).
+Yêu cầu: **Node.js ≥ 20**.
 
 ```bash
-npm install
+npm ci
 npm run build
 npm run dev
 ```
 
-Mở URL hiển thị trên terminal (mặc định `http://localhost:5173`) để xem bản 3D.
+Mở URL hiển thị trên terminal (mặc định `http://localhost:5173`) để chơi ngay.
 
 ---
 
-## Chạy chế độ Headless & Kiểm chứng
+## Điều khiển trong game
+
+| Phím | Chức năng |
+|---|---|
+| `W` `A` `S` `D` / Phím mũi tên | Di chuyển Mây theo hướng camera |
+| `Space` | Nhảy |
+| `E` | Nạp đom đóm vào Đèn Lồng Lớn gần nhất (trong bán kính `3.0 m`) |
+| `F` hoặc `Q` | Tỏa sáng xua & làm choáng Bóng Mực (tốn `1` đom đóm, bán kính `8.0 m`, hồi `1.5 s`) |
+| Kéo chuột hoặc `J` / `L` | Xoay camera 3D quanh Mây |
+| `M` | Bật/tắt âm thanh |
+| `R` | Chơi lại Đêm 1 ngay lập tức |
+
+---
+
+## Cách tính điểm
+
+Thông số khớp 100% với [game.contract.json](game.contract.json):
+- **Nhặt 1 đom đóm:** `+10` điểm (`per_mote`)
+- **Thắp sáng 1 Đèn Lồng Lớn (cần 3 đom đóm):** `+100` điểm (`per_lantern`)
+- **Tỏa sáng làm choáng 1 Bóng Mực:** `+25` điểm / Bóng Mực (`per_stun`)
+- **Thưởng khi thắng (thắp đủ 5/5 đèn):**
+  - `+2` điểm cho mỗi giây còn lại nguyên (`Math.floor(time_left_s) * per_second_left`)
+  - `+50` điểm cho mỗi ngọn lửa còn lại (`flames * per_flame_left`)
+
+> **Lưu ý về `fall_enabled`:** Đặt `false` trong [game.contract.json](game.contract.json) — rìa Đảo Bến có ranh giới mây giữ Mây không rơi khỏi đảo, nên sự kiện `player_hit` với `"by": "fall"` không xảy ra.
+
+---
+
+## Chạy chế độ Headless (Test Contract v1.0) & Kiểm chứng
 
 ```bash
-# Chạy chế độ headless (sau khi build)
-npm run headless -- --ticks 60
+# Chạy headless chuẩn Test Contract v1.0
+node dist/headless.mjs --seed 42 --night 1 --ticks 600 --out out.jsonl --snapshot-every 10
 
-# Chạy toàn bộ unit test & headless test
+# Chạy kèm scenario & inputs mẫu
+node dist/headless.mjs --seed 42 --night 1 \
+  --scenario tests/scenarios/win-all-lit.scenario.json \
+  --inputs tests/scenarios/win-all-lit.inputs.json \
+  --ticks 300 --out win.jsonl
+
+# Chạy toàn bộ unit test & contract test
 npm test
 
-# Chạy bộ kiểm chứng đầy đủ (secret scan, typecheck, build, test, determinism)
-npm run verify
+# Chạy cổng kiểm chứng đầy đủ + kiểm tra tính tất định SHA-256
+npm run verify -- --phase phase-1
 ```
 
 ---
 
-## Cấu trúc dự án
+## Sáng tạo của tôi (không ảnh hưởng Headless / Test Contract)
 
-```text
-src/
-  core/              Logic game thuần TypeScript (0 import DOM/Three.js, tất định 100%)
-  headless/          CLI chạy không giao diện theo Test Contract
-  client/            Giao diện 3D Three.js + HUD đọc trạng thái từ src/core/
-tests/               Unit test, scenario headless & kiểm tra hồi quy
-scripts/             Script build headless, verify & tạo bằng chứng tự động
-docs/
-  notes/             Giả định (assumptions.md), nhật ký AI & token (ai-log.md), retro (retro.md)
-  proof/             Bảng truy vết yêu cầu -> bằng chứng thật khớp từng tag
-AGENTS.md            Hướng dẫn ngắn gọn cho AI agent (cập nhật qua từng phase)
-.agents/skills/      Skill quy trình kiểm chứng (verify-phase)
-.githooks/           Pre-commit hook chặn lộ .env và chặn commit khi test đỏ
-.github/workflows/   GitHub Actions CI chạy kiểm chứng tự động mỗi lần push
-CREDITS.md           Ghi nguồn thư viện, asset và công cụ AI
-LICENSE              Giấy phép MIT
-CHANGELOG.md         Lịch sử thay đổi thiết kế & phiên bản
-```
+Toàn bộ phần mở rộng sáng tạo chỉ nằm ở lớp hiển thị & âm thanh `src/client/` (hoàn toàn không được import vào `src/core/` và `src/headless/`):
+1. **Âm thanh cổ tích tổng hợp bằng Web Audio API (`src/client/audio.ts`):** tiếng chuông gió nâng cao dần khi nhặt đom đóm, hợp âm ấm khi thắp sáng Đèn Lồng Lớn, tiếng sóng ánh sáng khi tỏa sáng — không cần tải file âm thanh ngoài, bật/tắt bằng phím `M`.
+2. **Hiệu ứng biển mây trôi & tia lửa đèn lồng (`src/client/main.ts`):** biển mây xoay nhẹ dưới chân Đảo Bến, cột ánh sáng định hướng mờ cho các đèn chưa thắp, vòng vàng đánh dấu vùng an toàn (`safe_radius = 6 m`) quanh đèn đã thắp, và tàn lửa vàng bay lên trời mỗi khi một Đèn Lồng Lớn được thắp sáng.
+3. **Bằng chứng không phá lõi:** [tests/architecture.test.ts](tests/architecture.test.ts) tự động chặn mọi import `three`/DOM trong `src/core/`, và [docs/proof/phase-1-verify.log](docs/proof/phase-1-verify.log) xác nhận toàn bộ 18 test & kiểm tra tính tất định SHA-256 đều đạt.
 
 ---
 
-## Tài liệu Lab gốc
+## Tài liệu, Bằng chứng & Harness AI
 
-- [GUIDE.md](GUIDE.md) · [CHECKPOINTS.md](CHECKPOINTS.md) · [SUBMISSION.md](SUBMISSION.md) · [RULES.md](RULES.md) · [RUBRIC.md](RUBRIC.md)
-- Lab board: [Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)
+- **Khai báo Contract:** [game.contract.json](game.contract.json)
+- **Bằng chứng & truy vết:** [docs/proof/README.md](docs/proof/README.md) · [docs/proof/phase-1-verify.log](docs/proof/phase-1-verify.log)
+- **Giả định & Nhật ký AI/Token:** [docs/notes/assumptions.md](docs/notes/assumptions.md) · [docs/notes/ai-log.md](docs/notes/ai-log.md) · [docs/notes/retro.md](docs/notes/retro.md)
+- **Harness AI:** [AGENTS.md](AGENTS.md) · [.agents/skills/verify-phase/SKILL.md](.agents/skills/verify-phase/SKILL.md) · [.githooks/pre-commit](.githooks/pre-commit) · [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- **Bản quyền & Thay đổi:** [LICENSE](LICENSE) · [CREDITS.md](CREDITS.md) · [CHANGELOG.md](CHANGELOG.md)
+- **Tài liệu Lab gốc:** [GUIDE.md](GUIDE.md) · [CHECKPOINTS.md](CHECKPOINTS.md) · [SUBMISSION.md](SUBMISSION.md) · [RULES.md](RULES.md) · [RUBRIC.md](RUBRIC.md)
