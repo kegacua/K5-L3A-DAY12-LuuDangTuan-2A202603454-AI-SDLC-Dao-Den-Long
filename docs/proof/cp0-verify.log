@@ -1,0 +1,58 @@
+=== VERIFY REPORT (cp0) ===
+Timestamp: 2026-11-20T07:16:29.584Z
+Git HEAD:  349cf67
+Node:      v20.8.1
+Platform:  win32 x64 (AMD Ryzen 7 PRO 4750U with Radeon Graphics)
+Status:    PASS
+
+[PASS] Secret file scan (81ms)
+$ git ls-files
+OK (6 tracked files checked, 0 .env files)
+
+[PASS] TypeScript typecheck (6996ms)
+$ npm.cmd run typecheck
+> dao-den-long@0.1.0 typecheck
+> tsc --noEmit
+
+[PASS] Build web + headless (10878ms)
+$ npm.cmd run build
+> dao-den-long@0.1.0 build
+> npm run build:web && npm run build:headless
+
+
+> dao-den-long@0.1.0 build:web
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 6 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/web/[22m[32mindex.html                [39m[1m[2m  1.29 kB[22m[1m[22m[2m │ gzip:   0.68 kB[22m
+[2mdist/web/[22m[36massets/index-g0quDXUz.js  [39m[1m[2m474.02 kB[22m[1m[22m[2m │ gzip: 119.75 kB[22m
+[32m✓ built in 1.65s[39m
+
+> dao-den-long@0.1.0 build:headless
+> node scripts/build-headless.mjs
+
+[PASS] Unit & headless test suite (5243ms)
+$ npm.cmd test
+> dao-den-long@0.1.0 test
+> vitest run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/tuan-D/Document-D/AI_thuc_chien/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long[39m
+
+ [32m✓[39m tests/architecture.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32m✓[39m tests/core.hello.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m tests/headless.smoke.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 247[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 14:16:27
+[2m   Duration [22m 1.49s[2m (transform 177ms, setup 0ms, collect 229ms, tests 266ms, environment 2ms, prepare 1.42s)[22m
+
+[PASS] Headless determinism comparison (165ms)
+$ sha256(run1) === sha256(run2)
+IDENTICAL (sha256=ca4d4d5dd99a3320dd79b3556ab250579cf35f68ed02566565c90ef1f22ebbfb)
+output={"mode":"cp0-hello-headless","ticks":120,"dt":0.016666666666666666,"state":{"tick":120,"time":2,"lanternLit":true,"fireflyPos":{"x":-2.403431,"y":1.264377,"z":1.795416}}}

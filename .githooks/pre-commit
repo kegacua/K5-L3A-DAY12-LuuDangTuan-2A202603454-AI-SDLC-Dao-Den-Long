@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+set -eu
+
+echo "[pre-commit] Checking staged files for forbidden secrets (.env / keys)..."
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+if echo "$STAGED" | grep -iE '(^|/)\.env($|\.)|\.(pem|key)$' | grep -ivE '\.env\.example$' >/dev/null 2>&1; then
+  echo "[pre-commit] ERROR: Attempted to commit a forbidden secret/.env file!"
+  exit 1
+fi
+
+if [ -f package.json ] && [ -d node_modules ]; then
+  echo "[pre-commit] Running typecheck and tests..."
+  npm run typecheck
+  npm test
+fi
+
+echo "[pre-commit] All checks passed."
