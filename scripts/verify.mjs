@@ -73,7 +73,7 @@ function main() {
   steps.push(checkTrackedSecrets());
   steps.push(runCmd(npmCmd, ['run', 'typecheck'], 'TypeScript typecheck'));
   steps.push(runCmd(npmCmd, ['run', 'build'], 'Build web + headless'));
-  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract v1.1 test suite'));
+  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract v1.2 test suite'));
 
   const tmpDir = mkdtempSync(join(os.tmpdir(), 'ddl-verify-'));
   try {
@@ -109,7 +109,7 @@ function main() {
       }
     }
 
-    // Performance check: Full Night 3 (21,600 ticks) <= 30,000 ms
+    // Performance check: Full Night 3 (18,000 ticks = 300s in v1.2) <= 30,000 ms
     const benchOut = join(tmpDir, 'bench-n3.jsonl');
     const bench = runCmd(
       process.execPath,
@@ -120,19 +120,19 @@ function main() {
         '--night',
         '3',
         '--ticks',
-        '21600',
+        '18000',
         '--out',
         benchOut,
         '--snapshot-every',
         '10',
       ],
-      'Headless full Night 3 benchmark (21,600 ticks <= 30s)',
+      'Headless full Night 3 benchmark (18,000 ticks <= 30s)',
     );
     const benchLines = bench.ok ? readFileSync(benchOut, 'utf8').trim().split(/\r?\n/) : [];
     steps.push({
       ok: bench.ok && bench.elapsedMs <= 30_000,
       label: 'Headless full Night 3 performance budget (<= 30,000ms)',
-      command: 'node dist/headless.mjs --seed 2026 --night 3 --ticks 21600 --snapshot-every 10',
+      command: 'node dist/headless.mjs --seed 2026 --night 3 --ticks 18000 --snapshot-every 10',
       elapsedMs: bench.elapsedMs,
       output: bench.ok
         ? `COMPLETED in ${bench.elapsedMs}ms (budget 30000ms), lines=${benchLines.length}\nend=${benchLines[benchLines.length - 1]}`

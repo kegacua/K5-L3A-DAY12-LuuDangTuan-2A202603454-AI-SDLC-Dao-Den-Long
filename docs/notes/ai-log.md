@@ -11,7 +11,7 @@
 | CP0 | Antigravity (IDE agent) | ~4 | ~12k / ~6k | Trong gói tài khoản (~\$0.05 nếu tính API) | Đọc song song 6 file lab một lượt; giữ `AGENTS.md` ngắn (< 40 dòng); gom batch ghi file song song; dùng script tự verify |
 | Phase 1 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~9 | ~38k / ~16k | Trong gói tài khoản (~\$0.18 nếu tính API) | Dùng model nhẹ (`flash`) cho browser subagent đọc PRD-0; gom ghi file theo batch; dùng `npm run verify` tự động thay vì chạy từng lệnh rời; dùng 1 subagent auditor đọc chéo cuối phase |
 | Phase 2 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~10 | ~52k / ~24k | Trong gói tài khoản (~\$0.26 nếu tính API) | Tái sử dụng browser subagent idle (`send_message`) thay vì spawn mới; tách sạch `maps.ts` riêng khỏi `simulation.ts`; gom batch sửa toàn bộ lỗi auditor trong 1 lượt |
-| Phase 3 | *(cập nhật sau)* | | | | |
+| Phase 3 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~8 | ~45k / ~20k | Trong gói tài khoản (~\$0.22 nếu tính API) | Tái sử dụng browser subagent đọc Ticket-03; giữ nguyên `maps.ts`/`rng.ts` chỉ nâng cấp có trọng tâm `simulation.ts` & `client/main.ts`; dùng số nguyên 1/60 ngay từ thiết kế đầu (tránh vòng sửa sai số dấu phẩy động) |
 | Phase 4 | *(cập nhật sau)* | | | | |
 
 ---
@@ -46,7 +46,13 @@
   - Nâng cấp [.agents/skills/verify-phase/SKILL.md](../../.agents/skills/verify-phase/SKILL.md) và [scripts/verify.mjs](../../scripts/verify.mjs): tự kiểm tra tính tất định SHA-256 cho cả **3 Đêm (1, 2, 3)** và đo benchmark Đêm 3 đầy đủ `21.600` tick.
 
 ### Phase 3 — Evaluation & AI Error Log
-*(Cập nhật cuối Phase 3)*
+- **Đánh giá yêu cầu:** Đạt toàn bộ 7/7 tiêu chí nghiệm thu P3-1..P3-7 (Ticket-03 Change Request "Đèn cạn dầu" · Contract v1.2), hoàn tất **ADR-001**, **Breaking Changes Changelog**, cập nhật/xóa test cũ có lý do rõ ràng, và giữ nguyên 100% kiểm tra hồi quy Phase 1–2 không bị thay thế.
+- **Các lần AI sai & cách phát hiện:**
+  1. **Trạng thái hậu choáng (`stunned -> wander`) bị nhảy ngay sang `chase` trong cùng 1 tick:** Ở tick `T+120` khi hết choáng, Bước 2 chuyển `stunned -> wander`, sau đó Bước 8 trong cùng tick phát hiện Mây trong `12 m` liền đổi luôn sang `chase`, làm snapshot không bao giờ ghi nhận trạng thái `wander` theo đúng quy định *"Hết choáng thì về wander"*. *Phát hiện:* unit test `tests/simulation.unit.test.ts` bắt ngay ở lần chạy đầu tiên! *Cách sửa:* giữ tập `justUnstunnedIds` trong tick đó để Bóng Mực kết thúc tick hết choáng ở trạng thái `wander`, rồi mới xét phát hiện Mây ở tick kế tiếp.
+  2. **Các điểm tinh chỉnh từ subagent rà soát độc lập (`Phase 3 Contract v1.2 Auditor` — Verdict: PASS, 0 CRITICAL, 0 MAJOR):** phát hiện 5 điểm MINOR (guard `target.fuelSixtieths < lowFuelUnits` ở Bước 2 nếu scenario cố tình đặt shade `drain` trên đèn `>= 30`, khởi tạo `transparent: true` sẵn cho `fuelFillMat` trong Three.js, mở rộng unit test biên cho `no_flames` đúng tick bình minh / `drain` cộng dồn 2 con / đèn đầy dầu không được chọn / giới hạn sức chứa 20, cập nhật chuỗi lỗi CLI `v1.2`). Đã xử lý triệt để toàn bộ.
+- **Cập nhật Harness sau Phase 3:**
+  - Cập nhật [AGENTS.md](../../AGENTS.md): quy định bắt buộc dùng đơn vị nhiên liệu nguyên `1/60` (`fuelSixtieths`), thứ tự 12 bước Contract v1.2, trạng thái `drain`, và yêu cầu viết ADR khi gặp Change Request.
+  - Cập nhật [scripts/verify.mjs](../../scripts/verify.mjs) khớp thời lượng Đêm 3 mới (`18.000` tick = `300 s`).
 
 ### Phase 4 — Evaluation & AI Error Log
 *(Cập nhật cuối Phase 4)*

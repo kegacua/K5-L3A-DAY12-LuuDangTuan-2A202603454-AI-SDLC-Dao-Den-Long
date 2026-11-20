@@ -62,8 +62,23 @@
 - **P2-10 (Âm thanh, Bảng màu chuẩn & HUD đầy đủ):** Nhạc nền đêm + đủ SFX (nhặt, thắp đèn, tỏa sáng, bị đánh, nhảy, lướt, thắng, thua, Bóng Mực xuất hiện, đếm ngược 10s cuối); bảng màu Hex khớp bảng chuẩn Ticket-02; cường độ ánh sáng môi trường `0.15 + 0.55 × (lit/total)`; HUD đầy đủ (Ngọn Lửa, đồng hồ đỏ nhấp nháy `<= 30s`, đèn `k/n` + điểm, thanh 10 ô đom đóm, hồi chiêu Lướt & Tỏa Sáng, nhắc `"E — Nạp ánh sáng (x/10)"`, mũi tên chỉ đèn ngoài màn hình).
 - **P2-11 (Hiệu năng Headless & 3D):** Full Đêm 3 (`21.600` tick) xong trong `<= 30s` (thực đo `~0.6s`); renderer tối ưu chia sẻ geometry/material đom đóm và giới hạn pixelRatio `<= 1.5` để đạt `>= 30 FPS` ở 1280×720.
 
-## Phase 3 (Ticket-03)
-*(Chờ phát hành đề Phase 3)*
+## Phase 3 — Ticket-03 Change Request "Đèn cạn dầu" (Contract v1.2)
+
+> Xem quyết định kiến trúc chi tiết tại [adr-001-lantern-fuel-and-dawn-win.md](adr-001-lantern-fuel-and-dawn-win.md) và danh sách Breaking Changes tại [CHANGELOG.md](../../CHANGELOG.md).
+
+### Test cũ bị thay thế & Lý do cập nhật/xóa (không skip âm thầm)
+- **Xóa `tests/scenarios/win-all-lit.{scenario,inputs}.json`:** Luật cũ "thắng ngay lập tức (`all_lit`) khi thắp đủ đèn" đã bị Ticket-03 Mục 3 **[THAY THẾ]** hoàn toàn bằng luật sống sót tới bình minh (`dawn_survived`). Thay bằng `tests/scenarios/p3-dawn-survived.{scenario,inputs}.json` kiểm tra đồng thời không thắng sớm khi thắp đủ 5 đèn và thắng `dawn_survived` đúng tick bình minh.
+- **Cập nhật assertion điểm & hậu choáng trong `tests/simulation.unit.test.ts`:** Điểm đổi sang công thức Ticket-03 Mục 5 (`+5`/mote nạp, `+100` thắp mới, `+40` thắp lại, `+15` Bóng Mực đang `drain`, thưởng bình minh, bỏ thưởng thời gian), và Bóng Mực hết choáng chuyển về `wander` theo Ticket-03 Mục 2.
+- **Cập nhật thời lượng benchmark Đêm 3:** Đêm 3 chuyển từ `360 s` (21.600 tick) xuống `300 s` (18.000 tick), vẫn nằm gọn dưới ngân sách `<= 30 s`.
+
+### Acceptance Criteria Phase 3 (P3-1 .. P3-7)
+- **P3-1 (Nhiên liệu đèn nguyên 1/60, châm dầu & thắp lại):** Đèn sáng bắt đầu `100.0`, hao `1/60` mỗi tick; châm dầu `used = min(carried, ceil((100-fuel)/10))` phát `refuel`, đèn đầy không được chọn; hết dầu tắt (`lantern_out`, `deposited=0`, `ever_lit=true`), thắp lại tốn `5` (`lantern_lit {relight:true}`, `relit_count++`).
+- **P3-2 (Bóng Mực hút dầu `drain` & mất vùng an toàn):** Đèn `fuel < 30` mất vùng an toàn (đúng `30.0` vẫn còn); Bóng Mực `wander` chọn đèn yếu gần nhất (`id` nhỏ hơn nếu bằng nhau), vào `<= 2m` chuyển `drain` hút `5/60` mỗi tick (cộng dồn), phát `fuel_drain` mỗi `60` tick; chuyển `chase` khi Mây vào `<= 6m`, `stunned` khi trúng Tỏa Sáng (`+15` điểm), về `wander` khi hết choáng/đèn tắt/châm lên `>= 30`/xa `> 2m`.
+- **P3-3 (Luật thắng bình minh `dawn_survived`):** Đêm 1/2/3 = `240/270/300 s`; thắp đủ đèn không kết thúc sớm; cuối tick ưu tiên `flames <= 0` → `no_flames`, rồi hết giờ: `lit >= ceil(0.6*N)` → `dawn_survived`, ngược lại `dawn`.
+- **P3-4 (Sức chứa tăng dần):** `capacity = min(20, 10 + 2 * successful_lights)` (không tính đèn đặt sẵn scenario), hiện trên snapshot `player.capacity` & HUD `đang mang / sức chứa`.
+- **P3-5 (Điểm mới v1.2):** `+5` mỗi đom đóm nạp/châm dầu, `+100` thắp đầu, `+40` thắp lại, `+5` Tỏa Sáng thường / `+15` đang `drain`, thắng bình minh `+50 + floor(fuel)` mỗi đèn sáng + `+50` mỗi Ngọn Lửa, bỏ thưởng thời gian.
+- **P3-6 (Chế độ mù màu & hiển thị nhiên liệu):** Cài đặt "Bảng màu dễ phân biệt" lưu `localStorage` (`#00B3FF` cho Bóng Mực, `#FFFFFF` + `⚠` cho cảnh báo UI); đèn tắt xẹp 20% + vết rách giấy phân biệt không cần màu; đèn sáng có thanh dầu 3D & nhấp nháy `1 Hz` khi `< 30`.
+- **P3-7 (Contract v1.2 & Hồi quy Phase 1–2):** `game.contract.json` v1.2 khớp 100% mã nguồn; toàn bộ test hồi quy Phase 1–2 không bị thay thế đều đạt; ADR & Breaking Changes đầy đủ.
 
 ## Phase 4 (Ticket-04)
 *(Chờ phát hành đề Phase 4)*

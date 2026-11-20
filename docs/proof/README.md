@@ -44,8 +44,17 @@
 | P2-10 | Hồi quy Phase 1 & Hiệu năng full Đêm 3 (`21.600` tick `<= 30 s`) + Determinism 3 Đêm | `npm run verify -- --phase phase-2` (27/27 test + benchmark `< 1s` / 30s) | [phase-2-verify.log](phase-2-verify.log) | Đạt |
 | P2-11 | Đánh giá chéo độc lập trước khi tag | Subagent `Phase 2 Contract v1.1 Auditor` rà soát & đã sửa toàn bộ 7 phát hiện + thêm regression test | [ai-log.md](../notes/ai-log.md) & [phase-2-verify.log](phase-2-verify.log) | Đạt |
 
-## Phase 3 (Ticket-03)
-*(Cập nhật khi triển khai Phase 3)*
+## Phase 3 — Ticket-03 Change Request "Đèn cạn dầu" · Contract v1.2 (`tag: phase-3`)
+
+| Mã YC | Yêu cầu | Cách kiểm chứng | Bằng chứng | Kết quả |
+|---|---|---|---|---|
+| P3-1 | Nhiên liệu đèn nguyên 1/60 (`100`, hao `1/s`), châm dầu `refuel`, tắt `lantern_out`, thắp lại tốn `5` (`relight:true`) | `tests/simulation.unit.test.ts` + `p3-fuel-refuel-relight` qua CLI | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-2 | Đèn `< 30` mất vùng an toàn, Bóng Mực `wander -> drain` (`5/s` cộng dồn, `fuel_drain` mỗi 60t), Tỏa Sáng `+15`, hết choáng về `wander` | `tests/simulation.unit.test.ts` + `p3-shade-drain-pulse` qua CLI | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-3 | Luật thắng mới: không thắng sớm `all_lit`, Đêm `240/270/300 s`, thắng bình minh `>= ceil(0.6*N)` (`dawn_survived`), ưu tiên `no_flames` | `tests/simulation.unit.test.ts` + `p3-dawn-survived` qua CLI | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-4 | Sức chứa tăng dần `min(20, 10 + 2 * successful_lights)` trên snapshot & HUD | `tests/simulation.unit.test.ts` + `p3-fuel-refuel-relight` qua CLI | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-5 | Điểm mới v1.2 (`+5`/mote, `+100`/`+40`, `+5`/`+15`, bình minh `50+floor(fuel)` & `50*flames`, bỏ thưởng thời gian) | `tests/simulation.unit.test.ts` (khẳng định chính xác 960đ, 65đ, 15đ) | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-6 | Chế độ mù màu ("Bảng màu dễ phân biệt": `#00B3FF`, `#FFFFFF` + `⚠`), đèn tắt xẹp 20% + vết rách, thanh dầu & nhấp nháy 1 Hz | `npm run build:web` sạch 0 lỗi + kiểm tra `src/client/main.ts` & `index.html` | [phase-3-verify.log](phase-3-verify.log) | Đạt |
+| P3-7 | ADR-001, Breaking Changes Changelog, cập nhật/xóa test cũ có lý do & hồi quy Phase 1–2 + Determinism 3 Đêm + Benchmark | `npm run verify -- --phase phase-3` (21/21 test) + Auditor Verdict **PASS** | [adr-001](../notes/adr-001-lantern-fuel-and-dawn-win.md), [CHANGELOG.md](../../CHANGELOG.md), [phase-3-verify.log](phase-3-verify.log) | Đạt |
 
 ## Phase 4 (Ticket-04)
 *(Cập nhật khi triển khai Phase 4)*
