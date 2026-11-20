@@ -2,16 +2,16 @@
 
 ## [Unreleased]
 
+## [phase-2] — Ticket-02 "Ba hòn đảo" (Contract v1.1)
+- Nâng cấp `game.contract.json` lên **Contract v1.1** với toàn bộ hằng số chuẩn hóa (tốc độ, sức chứa 10, chi phí đèn 10, bán kính nhặt 1m / tương tác 2m, Tỏa Sáng 3 đom đóm / 5m 3D / 3s, Lướt 14 m/s / 0.2s / 1.5s, rơi khỏi đảo `fall_enabled: true`, thời lượng 300/330/360s, điểm chuẩn `+10` mỗi đom đóm nạp, `+100` đèn, `+5` choáng).
+- Thêm `src/core/maps.ts`: bản đồ chuẩn & vật lý địa hình 3 Đêm (**Đảo Bến** R=40, **Đảo Cau** 2 đảo R=28 + cầu tre + 2 bục nhảy, **Đảo Chuông** 3 tầng + 2 dốc gỗ 30°/150° + Tháp Chuông + bục nhảy + Gió mạnh).
+- Viết lại `src/core/simulation.ts` theo đúng thứ tự **12 bước bắt buộc mỗi tick**, tích phân velocity-Verlet, trạng thái Bóng Mực chuẩn (`spawning`, `wander`, `chase`, `recoil`, `stunned`), đom đóm rơi TTL 480 tick, **Gió Lạc** (`drifters`), **Bùa Gió** (`charms`), **Tạm dừng/Tiếp tục** (`paused`/`resumed`), và toàn bộ trường snapshot/event v1.1.
+- Nâng cấp `src/client/` (`main.ts`, `audio.ts`, `index.html`): chuỗi 3 Đêm (Menu chính → Giới thiệu Ông Đăng → Chơi → Kết quả / Bình Minh), bảng màu chuẩn Hex, ánh sáng môi trường `0.15 + 0.55 × (đèn sáng/tổng)`, Tạm dừng (`Esc`/`P`), Cài đặt lưu `localStorage`, nhạc nền đêm + full SFX, HUD đủ 10 ô đom đóm, hồi chiêu Lướt/Tỏa Sáng & mũi tên chỉ đèn ngoài màn hình.
+- Cập nhật bộ test Phase 1 regression theo số liệu chuẩn Ticket-02 (có lý do rõ ràng trong `docs/notes/assumptions.md`) và thêm 6 bộ scenario headless cho mọi tính năng mới + benchmark 21.600 tick (`<= 30s`).
+- Cập nhật Harness AI (`AGENTS.md`, `.agents/skills/verify-phase/SKILL.md`, `scripts/verify.mjs`).
+
 ## [phase-1] — Đêm 1: Đảo Bến (PRD-0 & Test Contract v1.0)
-- Thêm `game.contract.json` (Test Contract v1.0) và đồng bộ trực tiếp vào `src/core/config.ts`.
-- Xây dựng lõi mô phỏng 60Hz tất định (`src/core/types.ts`, `src/core/rng.ts`, `src/core/config.ts`, `src/core/validation.ts`, `src/core/simulation.ts`): di chuyển theo `cam_yaw_deg`, nhảy, nhặt đom đóm, nạp & thắp 5 Đèn Lồng Lớn, Tỏa sáng làm choáng & đẩy lùi Bóng Mực, vùng an toàn `safe_radius`, sát thương & bất tử tạm thời, thắng/thua/tính điểm.
-- Triển khai CLI headless chuẩn Test Contract v1.0 (`src/headless/cli.ts`) với JSONL snapshot/event/end và mã thoát `0` / `2` / `1`.
-- Xây dựng game 3D Đảo Bến bằng Three.js (`src/client/main.ts`, `src/client/audio.ts`, `index.html`): Mây đội nón lá treo đèn lồng nhỏ, đảo sáng dần theo số đèn thắp, HUD đầy đủ, chơi lại tức thì, âm thanh Web Audio tổng hợp & hiệu ứng biển mây/tàn lửa (chỉ ở lớp hiển thị).
-- Bổ sung bộ 4 scenario fixture (`tests/scenarios/`) và 18 test tự động (`tests/architecture.test.ts`, `tests/simulation.unit.test.ts`, `tests/headless.contract.test.ts`).
-- **Thay thế test cũ (có lý do):** Gỡ bỏ bộ khung hello CP0 (`src/core/hello.ts`, `tests/core.hello.test.ts`, `tests/headless.smoke.test.ts`) vì đã được thay thế bởi lõi game và CLI chuẩn Test Contract v1.0 của Phase 1.
+- Triển khai lõi mô phỏng 60Hz tất định, CLI headless Contract v1.0, game 3D Đảo Bến, 19 test tự động và đánh giá chéo độc lập.
 
 ## [CP0] — Chuẩn bị môi trường & bộ khung AI SDLC
-- Khởi tạo dự án đa nền tảng (`TypeScript + Three.js + Vite + Node.js headless + Vitest`).
-- Tách sạch `src/core/`, `src/headless/` và `src/client/`.
-- Thiết lập AI Harness: `AGENTS.md`, skill `.agents/skills/verify-phase/SKILL.md`, `scripts/verify.mjs`, `.githooks/pre-commit`, `.github/workflows/ci.yml`.
-- Khởi tạo khung tài liệu ghi chép (`docs/notes/`, `docs/proof/`, `LICENSE`, `CREDITS.md`).
+- Khởi tạo stack `TypeScript + Three.js + Vite + Node headless + Vitest`, AI Harness, pre-commit hook và GitHub Actions CI.

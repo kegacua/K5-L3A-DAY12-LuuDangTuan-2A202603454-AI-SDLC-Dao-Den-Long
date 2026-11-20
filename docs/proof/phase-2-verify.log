@@ -1,0 +1,74 @@
+=== VERIFY REPORT (phase-2) ===
+Timestamp: 2026-11-20T08:40:46.744Z
+Git HEAD:  a4d4c5f
+Node:      v20.8.1
+Platform:  win32 x64 (AMD Ryzen 7 PRO 4750U with Radeon Graphics)
+Status:    PASS
+
+[PASS] Secret file scan (87ms)
+$ git ls-files
+OK (47 tracked files checked, 0 .env files)
+
+[PASS] TypeScript typecheck (7204ms)
+$ npm.cmd run typecheck
+> dao-den-long@0.1.0 typecheck
+> tsc --noEmit
+
+[PASS] Build web + headless (10861ms)
+$ npm.cmd run build
+> dao-den-long@0.1.0 build
+> npm run build:web && npm run build:headless
+
+
+> dao-den-long@0.1.0 build:web
+> vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 11 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/web/[22m[32mindex.html                [39m[1m[2m 13.36 kB[22m[1m[22m[2m │ gzip:   3.80 kB[22m
+[2mdist/web/[22m[36massets/index-CsTLLu2g.js  [39m[1m[33m549.95 kB[39m[22m[2m │ gzip: 143.50 kB[22m
+[32m✓ built in 1.83s[39m
+
+> dao-den-long@0.1.0 build:headless
+> node scripts/build-headless.mjs
+
+[PASS] Unit & headless contract v1.1 test suite (6503ms)
+$ npm.cmd test
+> dao-den-long@0.1.0 test
+> vitest run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/tuan-D/Document-D/AI_thuc_chien/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long[39m
+
+ [32m✓[39m tests/architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 25[2mms[22m[39m
+ [32m✓[39m tests/simulation.unit.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 61[2mms[22m[39m
+ [32m✓[39m tests/headless.contract.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 1915[2mms[22m[39m
+   [33m[2m✓[22m[39m Headless CLI Test Contract v1.1 (Phase 1 Regression + Phase 2 Features)[2m > [22mFull Night 3 headless (21,600 ticks) finishes well within <= 30s and is deterministic [33m790[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m27 passed[39m[22m[90m (27)[39m
+[2m   Start at [22m 15:40:42
+[2m   Duration [22m 3.28s[2m (transform 383ms, setup 0ms, collect 583ms, tests 2.00s, environment 1ms, prepare 1.66s)[22m
+
+[PASS] Headless Night 1 determinism (seed=42, ticks=1200) (239ms)
+$ sha256(n1-r1) === sha256(n1-r2)
+IDENTICAL (sha256=74f7a85d397c7ab10664a2172045d008c5a3649d6deb1edfffdbdbc5407fbb82, lines=126)
+end={"type":"end","ticks":1200,"state":"playing","score":0}
+
+[PASS] Headless Night 2 determinism (seed=42, ticks=1200) (225ms)
+$ sha256(n2-r1) === sha256(n2-r2)
+IDENTICAL (sha256=3ae51cba2c26621470012e3c1a786bf8ac46a88741ea304590c1d5776018e975, lines=127)
+end={"type":"end","ticks":1200,"state":"playing","score":0}
+
+[PASS] Headless Night 3 determinism (seed=42, ticks=1200) (230ms)
+$ sha256(n3-r1) === sha256(n3-r2)
+IDENTICAL (sha256=3bd605ed8a3775d0832e72933a4f6c09651c22925da38bb50937be3686906b1b, lines=127)
+end={"type":"end","ticks":1200,"state":"playing","score":0}
+
+[PASS] Headless full Night 3 performance budget (<= 30,000ms) (415ms)
+$ node dist/headless.mjs --seed 2026 --night 3 --ticks 21600 --snapshot-every 10
+COMPLETED in 415ms (budget 30000ms), lines=1010
+end={"type":"end","ticks":9939,"state":"lost","score":0}

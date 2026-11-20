@@ -28,8 +28,21 @@
 
 ---
 
-## Phase 2 (Ticket-02)
-*(Cập nhật khi triển khai Phase 2)*
+## Phase 2 — Ticket-02 "Ba hòn đảo" · Contract v1.1 (`tag: phase-2`)
+
+| Mã YC | Yêu cầu | Cách kiểm chứng | Bằng chứng | Kết quả |
+|---|---|---|---|---|
+| P2-1 | `game.contract.json` v1.1 khớp 100% số chuẩn Ticket-02 | `tests/architecture.test.ts` (so khớp từng khóa v1.1 & `DEFAULT_TUNING`) | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-2 | Thứ tự 12 bước tick & Tạm dừng (`paused`/`resumed`, đóng băng `sim_tick`) | `tests/simulation.unit.test.ts` + `p2-pause-resume.inputs.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-3 | Lướt (`14 m/s`, `0.2 s`, hồi `1.5 s`, giữ độ cao trên không) | `tests/simulation.unit.test.ts` + `p2-dash.scenario.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-4 | Rơi khỏi đảo (`Y < -10`, bỏ qua bất tử, mất đom đóm, hồi sinh 60t + 90t bất tử) | `tests/simulation.unit.test.ts` + `p2-fall-respawn.scenario.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-5 | Đom đóm rơi (`floor(carried/2)`, vành 1.5–2.5m, TTL 480t), Tỏa Sáng 3D & vùng an toàn | `tests/simulation.unit.test.ts` + `pulse-safe-zone.scenario.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-6 | Bản đồ chuẩn 3 Đêm (Đảo Bến, Đảo Cau + cầu/bục nhảy, Đảo Chuông 3 tầng/dốc/Tháp Chuông/Gió) | `p2-night2-jumppad-charm` & `p2-night3-tiers-wind` qua CLI + 3-night determinism | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-7 | Gió Lạc (Drifters: `idle`/`chase`/`flee`/`removed`, cướp & rơi khi bị Tỏa Sáng) | `tests/simulation.unit.test.ts` + `p2-drifter-steal-drop.scenario.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-8 | Bùa Gió (tốc độ `7.2 m/s`, Lướt hồi `0 s`, hiệu lực `600 t`, hồi sinh `2700 t`) | `tests/simulation.unit.test.ts` + `p2-night2-jumppad-charm.scenario.json` qua CLI | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-9 | Chuỗi 3 Đêm (Menu → Ông Đăng → Chơi → Bình Minh), Tạm dừng, Cài đặt lưu `localStorage`, bảng màu chuẩn & full HUD/SFX | `npm run build:web` sạch 0 lỗi + kiểm tra `src/client/main.ts`, `audio.ts`, `index.html` | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-10 | Hồi quy Phase 1 & Hiệu năng full Đêm 3 (`21.600` tick `<= 30 s`) + Determinism 3 Đêm | `npm run verify -- --phase phase-2` (27/27 test + benchmark `< 1s` / 30s) | [phase-2-verify.log](phase-2-verify.log) | Đạt |
+| P2-11 | Đánh giá chéo độc lập trước khi tag | Subagent `Phase 2 Contract v1.1 Auditor` rà soát & đã sửa toàn bộ 7 phát hiện + thêm regression test | [ai-log.md](../notes/ai-log.md) & [phase-2-verify.log](phase-2-verify.log) | Đạt |
 
 ## Phase 3 (Ticket-03)
 *(Cập nhật khi triển khai Phase 3)*

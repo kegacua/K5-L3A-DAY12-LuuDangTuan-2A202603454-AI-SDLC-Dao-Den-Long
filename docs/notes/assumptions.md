@@ -38,8 +38,29 @@
 
 ---
 
-## Phase 2 (Ticket-02)
-*(Chờ phát hành đề Phase 2)*
+## Phase 2 — Ticket-02 "Ba hòn đảo" (Contract v1.1)
+
+### Thay đổi yêu cầu từ Phase 1 → Phase 2 (có lý do cập nhật test cũ)
+- **Chuẩn hóa hằng số (`game.contract.json` v1.1):** Ticket-02 thay thế các giá trị tự chọn ở Phase 1 bằng bộ số chuẩn (`carry_capacity: 10`, `lantern_cost: 10`, `pickup_radius: 1.0`, `interact_radius: 2.0`, `pulse_cost: 3`, `pulse_radius: 5.0` 3D, `pulse_stun_s: 2.0`, `pulse_push_m: 4.0` trong 15 tick, `pulse_cooldown_s: 3.0`, `invuln_s: 1.5`, `shade_speed: 4.0/4.5`, `shade_hit_radius: 1.0`, `fall_enabled: true`).
+- **Thay đổi cách tính điểm & rơi đom đóm:** Điểm `+10` chuyển từ `mote_picked` sang `deposit` (`+10` mỗi đom đóm nạp); `per_stun` đổi từ `25` → `5`; đánh rơi đổi từ `Math.round` sang `Math.floor(carried / 2)` rơi ra vành `1.5–2.5 m` (TTL 480 tick, nhặt lại từ tick sau). Toàn bộ test hồi quy Phase 1 (`tests/simulation.unit.test.ts`, `tests/scenarios/win-all-lit.*`, `tests/scenarios/pulse-safe-zone.*`) đã được cập nhật đúng theo số chuẩn mới, giữ nguyên kiểm tra logic lõi.
+- **Đảo Bến R=40 m & Đảo Chuông điểm xuất phát:** Đêm 1 cố định bán kính `40 m` (bỏ mở rộng bán kính tự động của Phase 1 vì `fall_enabled: true`). Đêm 3 có Tháp Chuông (r ≤ 2) và Tầng 2 ở tâm `(0, 0, 0)`, nên mặc định điểm xuất phát Đêm 3 đặt tại `[0, 0, -10]` (Tầng 0 mở, phía nam Tầng 2) khi scenario không chỉ định `player.pos`.
+- **Sự kiện `night_start`:** Phát một lần ở `sim_tick === 1` (`tick >= 1`) để tuân thủ tuyệt đối quy ước "dựng scenario tick 0 không phát sự kiện" và mọi sự kiện xảy ra ở bước `k` mang `tick = k + 1`.
+
+### Acceptance Criteria (bao gồm từng mục ở Phần 1, 2, 3 & 4)
+- **P2-1 (Contract v1.1 & Số chuẩn):** `game.contract.json` bản `1.1` khớp 100% hằng số Phần 1 + thêm `dash_*`, `night2_duration_s`, `night3_duration_s`; được khóa cứng bằng `tests/architecture.test.ts`.
+- **P2-2 (Thứ tự 12 bước & Tạm dừng):** Nhấn `pause` (`Esc`/`P`) đóng băng `sim_tick`, `time_left_s`, hồi chiêu, TTL, spawn và ghi `state: "paused"`, phát `paused`/`resumed` đúng thứ tự bước 1.
+- **P2-3 (Lướt — Dash):** Nhấn `Shift` (`dash` `false -> true`) lướt `14 m/s` trong `12` tick (`0.2 s`), hồi `90` tick (`1.5 s` từ lúc bắt đầu), giữ độ cao khi lướt trên không, không bất tử, phát `dash {}`.
+- **P2-4 (Rơi khỏi đảo & Hồi sinh):** Khi `Y < -10`, bỏ qua bất tử, trừ `1` Ngọn Lửa, mất toàn bộ đom đóm, phát `player_hit {by:"fall", flames, dropped:0, lost}` đúng 1 lần; chờ `60` tick rồi hồi sinh tại điểm xuất phát với `90` tick bất tử (nếu về `0` lửa thì thua ngay `no_flames`).
+- **P2-5 (Đom đóm rơi & Vùng an toàn):** Bị Bóng Mực đánh rơi `floor(carried/2)` đom đóm (`kind: "dropped"`, TTL `480` tick, nhặt lại từ tick sau) ra vành `1.5–2.5 m`; Bóng Mực ở trong vùng `6 m` khi đèn vừa thắp bị đẩy ra trong `<= 30` tick và không gây sát thương trong lúc đó.
+- **P2-6 (Bản đồ 3 Đêm — Đảo Bến, Đảo Cau, Đảo Chuông):**
+  - Đêm 1: R=40, 5 đèn, 24 điểm đom đóm, 12 điểm Bóng Mực (2 lúc tick 300, mỗi 480 tick, tối đa 6).
+  - Đêm 2: 2 đảo R=28 tại `(0,0)` & `(70,0)`, cầu tre `x∈[26,44], z∈[-2,2]`, 2 bục nhảy `(20,0,18)` & `(50,0,-18)` phóng sang đảo kia, 6 đèn, 1 Bùa Gió `C1(35,0,0)`.
+  - Đêm 3: R=45, 3 tầng (`Y=0/3/6`), vách đứng không leo được, 2 dốc rộng 3m ở `30°/150°` (`r=30→24`), bục nhảy `(0,3,13)` đáp Tầng 2, Tháp Chuông R=2 H=8, 7 đèn, 2 Bùa Gió `C1/C2`, Gió mạnh chu kỳ 30s (báo trước 2s, thổi 5s đẩy `2 m/s`).
+- **P2-7 (Gió Lạc — Drifters):** Xuất hiện Đêm 2 & 3 (tối đa 2, tick `1200, 2400, ...`); `idle (2m/s)` → `chase (7m/s)` khi `carried >= 5` & `dist <= 15m`; chạm `XZ <= 1.2m` cướp `min(3, carried)` bỏ qua bất tử & vùng an toàn (`drifter_steal`), chạy `flee` 240 tick rồi `removed`; bị Tỏa Sáng lúc `chase` → `flee`, lúc `flee` đang mang đồ → rơi hết đom đóm (`drifter_drop`) và biến mất sau 120 tick.
+- **P2-8 (Bùa Gió — Charms):** Nhặt theo luật đom đóm (`charm_picked`), hiệu lực `600` tick (làm mới khi nhặt lại): tốc độ `7.2 m/s`, hồi Lướt `0s` (bỏ qua bấm khi đang lướt), xuất hiện lại sau `2700` tick.
+- **P2-9 (Chuỗi 3 Đêm, Tạm dừng & Cài đặt):** Menu chính → Giới thiệu Đêm (tên đảo + lời Ông Đăng) → Chơi → Kết quả → Đêm tiếp theo → Màn hình Bình Minh tổng điểm 3 Đêm; Menu Tạm dừng (`Esc`/`P`); Cài đặt âm lượng & độ nhạy chuột lưu qua `localStorage`.
+- **P2-10 (Âm thanh, Bảng màu chuẩn & HUD đầy đủ):** Nhạc nền đêm + đủ SFX (nhặt, thắp đèn, tỏa sáng, bị đánh, nhảy, lướt, thắng, thua, Bóng Mực xuất hiện, đếm ngược 10s cuối); bảng màu Hex khớp bảng chuẩn Ticket-02; cường độ ánh sáng môi trường `0.15 + 0.55 × (lit/total)`; HUD đầy đủ (Ngọn Lửa, đồng hồ đỏ nhấp nháy `<= 30s`, đèn `k/n` + điểm, thanh 10 ô đom đóm, hồi chiêu Lướt & Tỏa Sáng, nhắc `"E — Nạp ánh sáng (x/10)"`, mũi tên chỉ đèn ngoài màn hình).
+- **P2-11 (Hiệu năng Headless & 3D):** Full Đêm 3 (`21.600` tick) xong trong `<= 30s` (thực đo `~0.6s`); renderer tối ưu chia sẻ geometry/material đom đóm và giới hạn pixelRatio `<= 1.5` để đạt `>= 30 FPS` ở 1280×720.
 
 ## Phase 3 (Ticket-03)
 *(Chờ phát hành đề Phase 3)*

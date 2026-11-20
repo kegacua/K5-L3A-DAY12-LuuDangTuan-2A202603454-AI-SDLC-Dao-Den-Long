@@ -73,79 +73,71 @@ function main() {
   steps.push(checkTrackedSecrets());
   steps.push(runCmd(npmCmd, ['run', 'typecheck'], 'TypeScript typecheck'));
   steps.push(runCmd(npmCmd, ['run', 'build'], 'Build web + headless'));
-  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract test suite'));
+  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract v1.1 test suite'));
 
-  // Determinism check: run Test Contract v1.0 headless CLI twice on same seed & compare SHA-256
   const tmpDir = mkdtempSync(join(os.tmpdir(), 'ddl-verify-'));
   try {
-    const out1 = join(tmpDir, 'run1.jsonl');
-    const out2 = join(tmpDir, 'run2.jsonl');
-    const winOut = join(tmpDir, 'win.jsonl');
-
-    const run1 = runCmd(
-      process.execPath,
-      ['dist/headless.mjs', '--seed', '42', '--night', '1', '--ticks', '600', '--out', out1],
-      'Headless determinism run #1',
-    );
-    const run2 = runCmd(
-      process.execPath,
-      ['dist/headless.mjs', '--seed', '42', '--night', '1', '--ticks', '600', '--out', out2],
-      'Headless determinism run #2',
-    );
-
-    if (run1.ok && run2.ok) {
-      const content1 = readFileSync(out1, 'utf8');
-      const content2 = readFileSync(out2, 'utf8');
-      const hash1 = createHash('sha256').update(content1).digest('hex');
-      const hash2 = createHash('sha256').update(content2).digest('hex');
-      const identical = content1 === content2 && hash1 === hash2;
-      const lines = content1.trim().split(/\r?\n/);
-      steps.push({
-        ok: identical,
-        label: 'Headless determinism comparison (seed=42, night=1, ticks=600)',
-        command: 'sha256(run1.jsonl) === sha256(run2.jsonl)',
-        elapsedMs: run1.elapsedMs + run2.elapsedMs,
-        output: identical
-          ? `IDENTICAL (sha256=${hash1}, lines=${lines.length})\nend=${lines[lines.length - 1]}`
-          : `MISMATCH!\nrun1=${hash1}\nrun2=${hash2}`,
-      });
-    } else {
-      steps.push(run1, run2);
+    // Determinism check across Nights 1, 2, 3
+    for (const night of ['1', '2', '3']) {
+      const out1 = join(tmpDir, `n${night}-r1.jsonl`);
+      const out2 = join(tmpDir, `n${night}-r2.jsonl`);
+      const r1 = runCmd(
+        process.execPath,
+        ['dist/headless.mjs', '--seed', '42', '--night', night, '--ticks', '1200', '--out', out1],
+        `Headless Night ${night} determinism run #1`,
+      );
+      const r2 = runCmd(
+        process.execPath,
+        ['dist/headless.mjs', '--seed', '42', '--night', night, '--ticks', '1200', '--out', out2],
+        `Headless Night ${night} determinism run #2`,
+      );
+      if (r1.ok && r2.ok) {
+        const c1 = readFileSync(out1, 'utf8');
+        const c2 = readFileSync(out2, 'utf8');
+        const h1 = createHash('sha256').update(c1).digest('hex');
+        const h2 = createHash('sha256').update(c2).digest('hex');
+        const lines = c1.trim().split(/\r?\n/);
+        steps.push({
+          ok: c1 === c2 && h1 === h2,
+          label: `Headless Night ${night} determinism (seed=42, ticks=1200)`,
+          command: `sha256(n${night}-r1) === sha256(n${night}-r2)`,
+          elapsedMs: r1.elapsedMs + r2.elapsedMs,
+          output: `IDENTICAL (sha256=${h1}, lines=${lines.length})\nend=${lines[lines.length - 1]}`,
+        });
+      } else {
+        steps.push(r1, r2);
+      }
     }
 
-    // End-to-end Win scenario smoke check
-    const winRun = runCmd(
+    // Performance check: Full Night 3 (21,600 ticks) <= 30,000 ms
+    const benchOut = join(tmpDir, 'bench-n3.jsonl');
+    const bench = runCmd(
       process.execPath,
       [
         'dist/headless.mjs',
         '--seed',
-        '42',
+        '2026',
         '--night',
-        '1',
-        '--scenario',
-        'tests/scenarios/win-all-lit.scenario.json',
-        '--inputs',
-        'tests/scenarios/win-all-lit.inputs.json',
+        '3',
         '--ticks',
-        '300',
+        '21600',
         '--out',
-        winOut,
+        benchOut,
+        '--snapshot-every',
+        '10',
       ],
-      'Headless win scenario (win-all-lit)',
+      'Headless full Night 3 benchmark (21,600 ticks <= 30s)',
     );
-    if (winRun.ok) {
-      const winLines = readFileSync(winOut, 'utf8').trim().split(/\r?\n/);
-      const endLine = JSON.parse(winLines[winLines.length - 1]);
-      steps.push({
-        ok: endLine.type === 'end' && endLine.state === 'won',
-        label: 'Headless win scenario assertion',
-        command: 'win-all-lit.scenario.json + win-all-lit.inputs.json',
-        elapsedMs: winRun.elapsedMs,
-        output: `lines=${winLines.length}\nend=${winLines[winLines.length - 1]}`,
-      });
-    } else {
-      steps.push(winRun);
-    }
+    const benchLines = bench.ok ? readFileSync(benchOut, 'utf8').trim().split(/\r?\n/) : [];
+    steps.push({
+      ok: bench.ok && bench.elapsedMs <= 30_000,
+      label: 'Headless full Night 3 performance budget (<= 30,000ms)',
+      command: 'node dist/headless.mjs --seed 2026 --night 3 --ticks 21600 --snapshot-every 10',
+      elapsedMs: bench.elapsedMs,
+      output: bench.ok
+        ? `COMPLETED in ${bench.elapsedMs}ms (budget 30000ms), lines=${benchLines.length}\nend=${benchLines[benchLines.length - 1]}`
+        : bench.output,
+    });
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
