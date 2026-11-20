@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { runHeadlessSimulation } from '../core/simulation.js';
-import type { InputsFile, ScenarioConfig } from '../core/types.js';
+import type { InputsFile, NightId, ScenarioConfig } from '../core/types.js';
 import {
   ContractInputError,
   validateInputsFile,
@@ -10,7 +10,7 @@ import {
 
 interface CliArgs {
   seed: number;
-  night: number;
+  night: NightId;
   ticks: number;
   out: string;
   snapshotEvery: number;
@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): CliArgs {
     const flag = argv[i];
     if (flag === '--help' || flag === '-h') {
       process.stdout.write(
-        'Usage: node dist/headless.mjs --seed <int> --night 1 [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>]\n',
+        'Usage: node dist/headless.mjs --seed <int> --night <1|2|3> [--scenario <file.json>] [--inputs <file.json>] --ticks <int> --out <file.jsonl> [--snapshot-every <int>]\n',
       );
       process.exit(0);
     } else if (flag === '--seed') {
@@ -79,7 +79,9 @@ function parseArgs(argv: string[]): CliArgs {
 
   if (seed === undefined) throw new CliUsageError('Missing required argument: --seed');
   if (night === undefined) throw new CliUsageError('Missing required argument: --night');
-  if (night !== 1) throw new CliUsageError(`Unsupported --night ${night} (Phase 1 supports --night 1)`);
+  if (night !== 1 && night !== 2 && night !== 3) {
+    throw new CliUsageError(`Unsupported --night ${night} (Contract v1.1 supports 1, 2, 3)`);
+  }
   if (ticks === undefined || ticks < 0) {
     throw new CliUsageError('Missing or negative required argument: --ticks');
   }

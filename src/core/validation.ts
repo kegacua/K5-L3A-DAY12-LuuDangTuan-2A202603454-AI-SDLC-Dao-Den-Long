@@ -1,4 +1,12 @@
-import type { InputFrame, InputsFile, ScenarioConfig, Vec3Tuple } from './types.js';
+import type {
+  DrifterStateName,
+  InputFrame,
+  InputsFile,
+  MoteKind,
+  ScenarioConfig,
+  ShadeStateName,
+  Vec3Tuple,
+} from './types.js';
 
 export class ContractInputError extends Error {
   constructor(message: string) {
@@ -6,6 +14,21 @@ export class ContractInputError extends Error {
     this.name = 'ContractInputError';
   }
 }
+
+const VALID_SHADE_STATES = new Set<ShadeStateName>([
+  'spawning',
+  'wander',
+  'chase',
+  'recoil',
+  'stunned',
+]);
+
+const VALID_DRIFTER_STATES = new Set<DrifterStateName>([
+  'idle',
+  'chase',
+  'flee',
+  'removed',
+]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -20,6 +43,13 @@ function assertVec3(value: unknown, fieldName: string): Vec3Tuple {
     throw new ContractInputError(`${fieldName} must be an array of 3 finite numbers`);
   }
   return [value[0], value[1], value[2]];
+}
+
+function assertNonNegInt(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new ContractInputError(`${fieldName} must be a non-negative integer`);
+  }
+  return value;
 }
 
 export function validateInputsFile(raw: unknown): InputsFile {
@@ -38,17 +68,15 @@ export function validateInputsFile(raw: unknown): InputsFile {
     if (!isPlainObject(item)) {
       throw new ContractInputError(`inputs.frames[${i}] must be an object`);
     }
-    if (typeof item.tick !== 'number' || !Number.isInteger(item.tick) || item.tick < 0) {
-      throw new ContractInputError(`inputs.frames[${i}].tick must be a non-negative integer`);
-    }
-    if (item.tick <= prevTick) {
+    const tick = assertNonNegInt(item.tick, `inputs.frames[${i}].tick`);
+    if (tick <= prevTick) {
       throw new ContractInputError(
-        `inputs.frames[${i}].tick (${item.tick}) must be strictly greater than previous tick (${prevTick})`,
+        `inputs.frames[${i}].tick (${tick}) must be strictly greater than previous tick (${prevTick})`,
       );
     }
-    prevTick = item.tick;
+    prevTick = tick;
 
-    const frame: InputFrame = { tick: item.tick };
+    const frame: InputFrame = { tick };
 
     if (item.move !== undefined) {
       if (
@@ -70,7 +98,7 @@ export function validateInputsFile(raw: unknown): InputsFile {
       frame.cam_yaw_deg = item.cam_yaw_deg;
     }
 
-    for (const key of ['jump', 'interact', 'pulse', 'dash'] as const) {
+    for (const key of ['jump', 'interact', 'pulse', 'dash', 'pause'] as const) {
       if (item[key] !== undefined) {
         if (typeof item[key] !== 'boolean') {
           throw new ContractInputError(`inputs.frames[${i}].${key} must be a boolean`);
@@ -101,43 +129,52 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       scenario.player.pos = assertVec3(raw.player.pos, 'scenario.player.pos');
     }
     if (raw.player.carried !== undefined) {
-      if (
-        typeof raw.player.carried !== 'number' ||
-        !Number.isInteger(raw.player.carried) ||
-        raw.player.carried < 0
-      ) {
-        throw new ContractInputError('scenario.player.carried must be a non-negative integer');
-      }
-      scenario.player.carried = raw.player.carried;
+      scenario.player.carried = assertNonNegInt(raw.player.carried, 'scenario.player.carried');
     }
     if (raw.player.flames !== undefined) {
-      if (
-        typeof raw.player.flames !== 'number' ||
-        !Number.isInteger(raw.player.flames) ||
-        raw.player.flames < 0
-      ) {
-        throw new ContractInputError('scenario.player.flames must be a non-negative integer');
+      scenario.player.flames = assertNonNegInt(raw.player.flames, 'scenario.player.flames');
+    }
+    if (raw.player.invuln_ticks !== undefined) {
+      scenario.player.invuln_ticks = assertNonNegInt(
+        raw.player.invuln_ticks,
+        'scenario.player.invuln_ticks',
+      );
+    }
+    if (raw.player.dash_cd_ticks !== undefined) {
+      scenario.player.dash_cd_ticks = assertNonNegInt(
+        raw.player.dash_cd_ticks,
+        'scenario.player.dash_cd_ticks',
+      );
+    }
+    if (raw.player.pulse_cd_ticks !== undefined) {
+      scenario.player.pulse_cd_ticks = assertNonNegInt(
+        raw.player.pulse_cd_ticks,
+        'scenario.player.pulse_cd_ticks',
+      );
+    }
+    if (raw.player.charm_ticks !== undefined) {
+      scenario.player.charm_ticks = assertNonNegInt(
+        raw.player.charm_ticks,
+        'scenario.player.charm_ticks',
+      );
+    }
+  }
+
+  for (const flag of ['random_motes', 'random_shades', 'random_drifters', 'wind_enabled'] as const) {
+    if (raw[flag] !== undefined) {
+      if (typeof raw[flag] !== 'boolean') {
+        throw new ContractInputError(`scenario.${flag} must be a boolean`);
       }
-      scenario.player.flames = raw.player.flames;
+      scenario[flag] = raw[flag];
     }
-  }
-
-  if (raw.random_motes !== undefined) {
-    if (typeof raw.random_motes !== 'boolean') {
-      throw new ContractInputError('scenario.random_motes must be a boolean');
-    }
-    scenario.random_motes = raw.random_motes;
-  }
-
-  if (raw.random_shades !== undefined) {
-    if (typeof raw.random_shades !== 'boolean') {
-      throw new ContractInputError('scenario.random_shades must be a boolean');
-    }
-    scenario.random_shades = raw.random_shades;
   }
 
   if (raw.time_left_s !== undefined) {
-    if (typeof raw.time_left_s !== 'number' || !Number.isFinite(raw.time_left_s) || raw.time_left_s < 0) {
+    if (
+      typeof raw.time_left_s !== 'number' ||
+      !Number.isFinite(raw.time_left_s) ||
+      raw.time_left_s < 0
+    ) {
       throw new ContractInputError('scenario.time_left_s must be a non-negative finite number');
     }
     scenario.time_left_s = raw.time_left_s;
@@ -156,7 +193,29 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
         if (item.id !== undefined && typeof item.id !== 'string') {
           throw new ContractInputError(`scenario.motes[${idx}].id must be a string`);
         }
-        return item.id !== undefined ? { id: item.id, pos } : { pos };
+        let kind: MoteKind | undefined;
+        if (item.kind !== undefined) {
+          if (item.kind !== 'random' && item.kind !== 'dropped') {
+            throw new ContractInputError(`scenario.motes[${idx}].kind must be "random" or "dropped"`);
+          }
+          kind = item.kind;
+        }
+        let ttlS: number | null | undefined;
+        if (item.ttl_s !== undefined) {
+          if (
+            item.ttl_s !== null &&
+            (typeof item.ttl_s !== 'number' || !Number.isFinite(item.ttl_s) || item.ttl_s < 0)
+          ) {
+            throw new ContractInputError(`scenario.motes[${idx}].ttl_s must be null or non-negative number`);
+          }
+          ttlS = item.ttl_s;
+        }
+        return {
+          ...(item.id !== undefined ? { id: item.id } : {}),
+          pos,
+          ...(kind !== undefined ? { kind } : {}),
+          ...(ttlS !== undefined ? { ttl_s: ttlS } : {}),
+        };
       }
       throw new ContractInputError(`scenario.motes[${idx}] must be [x,y,z] or {pos}`);
     });
@@ -177,13 +236,25 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       if (item.id !== undefined && typeof item.id !== 'string') {
         throw new ContractInputError(`scenario.shades[${idx}].id must be a string`);
       }
-      if (item.state !== undefined && item.state !== 'chase' && item.state !== 'stunned') {
-        throw new ContractInputError(`scenario.shades[${idx}].state must be "chase" or "stunned"`);
+      let state: ShadeStateName | undefined;
+      if (item.state !== undefined) {
+        if (typeof item.state !== 'string' || !VALID_SHADE_STATES.has(item.state as ShadeStateName)) {
+          throw new ContractInputError(`scenario.shades[${idx}].state is invalid: ${String(item.state)}`);
+        }
+        state = item.state as ShadeStateName;
+      }
+      let stateTicksLeft: number | undefined;
+      if (item.state_ticks_left !== undefined) {
+        stateTicksLeft = assertNonNegInt(
+          item.state_ticks_left,
+          `scenario.shades[${idx}].state_ticks_left`,
+        );
       }
       return {
         ...(item.id !== undefined ? { id: item.id } : {}),
         pos,
-        ...(item.state !== undefined ? { state: item.state } : {}),
+        ...(state !== undefined ? { state } : {}),
+        ...(stateTicksLeft !== undefined ? { state_ticks_left: stateTicksLeft } : {}),
       };
     });
   }
@@ -206,14 +277,7 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
         out.pos = assertVec3(item.pos, `scenario.lanterns[${idx}].pos`);
       }
       if (item.deposited !== undefined) {
-        if (
-          typeof item.deposited !== 'number' ||
-          !Number.isInteger(item.deposited) ||
-          item.deposited < 0
-        ) {
-          throw new ContractInputError(`scenario.lanterns[${idx}].deposited must be a non-negative integer`);
-        }
-        out.deposited = item.deposited;
+        out.deposited = assertNonNegInt(item.deposited, `scenario.lanterns[${idx}].deposited`);
       }
       if (item.lit !== undefined) {
         if (typeof item.lit !== 'boolean') {
@@ -222,6 +286,76 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
         out.lit = item.lit;
       }
       return out;
+    });
+  }
+
+  if (raw.drifters !== undefined) {
+    if (!Array.isArray(raw.drifters)) {
+      throw new ContractInputError('scenario.drifters must be an array');
+    }
+    scenario.drifters = raw.drifters.map((item, idx) => {
+      if (!isPlainObject(item)) {
+        throw new ContractInputError(`scenario.drifters[${idx}] must be an object`);
+      }
+      const pos = assertVec3(item.pos, `scenario.drifters[${idx}].pos`);
+      if (item.id !== undefined && typeof item.id !== 'string') {
+        throw new ContractInputError(`scenario.drifters[${idx}].id must be a string`);
+      }
+      let state: DrifterStateName | undefined;
+      if (item.state !== undefined) {
+        if (
+          typeof item.state !== 'string' ||
+          !VALID_DRIFTER_STATES.has(item.state as DrifterStateName)
+        ) {
+          throw new ContractInputError(`scenario.drifters[${idx}].state is invalid`);
+        }
+        state = item.state as DrifterStateName;
+      }
+      let stolen: number | undefined;
+      if (item.stolen !== undefined) {
+        stolen = assertNonNegInt(item.stolen, `scenario.drifters[${idx}].stolen`);
+      }
+      return {
+        ...(item.id !== undefined ? { id: item.id } : {}),
+        pos,
+        ...(state !== undefined ? { state } : {}),
+        ...(stolen !== undefined ? { stolen } : {}),
+      };
+    });
+  }
+
+  if (raw.charms !== undefined) {
+    if (!Array.isArray(raw.charms)) {
+      throw new ContractInputError('scenario.charms must be an array');
+    }
+    scenario.charms = raw.charms.map((item, idx) => {
+      if (!isPlainObject(item)) {
+        throw new ContractInputError(`scenario.charms[${idx}] must be an object`);
+      }
+      const pos = assertVec3(item.pos, `scenario.charms[${idx}].pos`);
+      if (item.id !== undefined && typeof item.id !== 'string') {
+        throw new ContractInputError(`scenario.charms[${idx}].id must be a string`);
+      }
+      let available: boolean | undefined;
+      if (item.available !== undefined) {
+        if (typeof item.available !== 'boolean') {
+          throw new ContractInputError(`scenario.charms[${idx}].available must be a boolean`);
+        }
+        available = item.available;
+      }
+      let respawnS: number | undefined;
+      if (item.respawn_s !== undefined) {
+        if (typeof item.respawn_s !== 'number' || !Number.isFinite(item.respawn_s) || item.respawn_s < 0) {
+          throw new ContractInputError(`scenario.charms[${idx}].respawn_s must be non-negative`);
+        }
+        respawnS = item.respawn_s;
+      }
+      return {
+        ...(item.id !== undefined ? { id: item.id } : {}),
+        pos,
+        ...(available !== undefined ? { available } : {}),
+        ...(respawnS !== undefined ? { respawn_s: respawnS } : {}),
+      };
     });
   }
 
