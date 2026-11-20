@@ -1,20 +1,20 @@
 === VERIFY REPORT (phase-4) ===
-Timestamp: 2026-11-20T10:20:26.246Z
-Git HEAD:  08e124b
+Timestamp: 2026-11-20T10:56:32.635Z
+Git HEAD:  e49d920
 Node:      v20.8.1
 Platform:  win32 x64 (AMD Ryzen 7 PRO 4750U with Radeon Graphics)
 Status:    PASS
 
-[PASS] Secret file scan (working tree + git history) (144ms)
+[PASS] Secret file scan (working tree + git history) (134ms)
 $ git ls-files
-OK (66 tracked files + full git history scanned, 0 .env/key files)
+OK (79 tracked files + full git history scanned, 0 .env/key files)
 
-[PASS] TypeScript typecheck (12701ms)
+[PASS] TypeScript typecheck (17770ms)
 $ npm.cmd run typecheck
 > dao-den-long@1.0.0 typecheck
 > tsc --noEmit
 
-[PASS] Build web + headless + bench + soak + app (18969ms)
+[PASS] Build web + headless + bench + soak + app (22930ms)
 $ npm.cmd run build
 > dao-den-long@1.0.0 build
 > npm run build:web && npm run build:headless
@@ -30,12 +30,12 @@ rendering chunks...
 computing gzip size...
 [2mdist/web/[22m[32mindex.html                [39m[1m[2m 18.39 kB[22m[1m[22m[2m │ gzip:   4.60 kB[22m
 [2mdist/web/[22m[36massets/index-DtkmkZMa.js  [39m[1m[33m577.12 kB[39m[22m[2m │ gzip: 151.48 kB[22m
-[32m✓ built in 4.58s[39m
+[32m✓ built in 5.22s[39m
 
 > dao-den-long@1.0.0 build:headless
 > node scripts/build-headless.mjs
 
-[PASS] Unit & headless contract v1.3 test suite (12521ms)
+[PASS] Unit & headless contract v1.3 test suite (11493ms)
 $ npm.cmd test
 > dao-den-long@1.0.0 test
 > vitest run
@@ -43,37 +43,37 @@ $ npm.cmd test
 
 [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/tuan-D/Document-D/AI_thuc_chien/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long[39m
 
- [32m✓[39m tests/architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 49[2mms[22m[39m
- [32m✓[39m tests/simulation.unit.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 100[2mms[22m[39m
- [32m✓[39m tests/phase4.release.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1171[2mms[22m[39m
-   [33m[2m✓[22m[39m Phase 4 (Ticket-04 / Contract v1.3) Release, Leaderboard, Bench & Soak Tests[2m > [22mruns soak test CLI across multiple nights with 0 crashes and stable memory [33m847[2mms[22m[39m
- [32m✓[39m tests/headless.contract.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 3954[2mms[22m[39m
-   [33m[2m✓[22m[39m Headless CLI Test Contract v1.3 (Phase 1-3 Regression + Phase 4 Release)[2m > [22mPhase 1-2 Regression: pulse, lose (dawn), dash, fall-respawn, night2 jump pad + charm, drifter, night3 tiers/wind, pause [33m1380[2mms[22m[39m
-   [33m[2m✓[22m[39m Headless CLI Test Contract v1.3 (Phase 1-3 Regression + Phase 4 Release)[2m > [22mFull Night 3 headless (18,000 ticks) finishes well within <= 30s and is deterministic [33m1728[2mms[22m[39m
+ [32m✓[39m tests/architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32m✓[39m tests/simulation.unit.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 84[2mms[22m[39m
+ [32m✓[39m tests/phase4.release.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 798[2mms[22m[39m
+   [33m[2m✓[22m[39m Phase 4 (Ticket-04 / Contract v1.3) Release, Leaderboard, Bench & Soak Tests[2m > [22mruns soak test CLI across multiple nights with 0 crashes and stable memory [33m516[2mms[22m[39m
+ [32m✓[39m tests/headless.contract.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 3098[2mms[22m[39m
+   [33m[2m✓[22m[39m Headless CLI Test Contract v1.3 (Phase 1-3 Regression + Phase 4 Release)[2m > [22mPhase 1-2 Regression: pulse, lose (dawn), dash, fall-respawn, night2 jump pad + charm, drifter, night3 tiers/wind, pause [33m1026[2mms[22m[39m
+   [33m[2m✓[22m[39m Headless CLI Test Contract v1.3 (Phase 1-3 Regression + Phase 4 Release)[2m > [22mFull Night 3 headless (18,000 ticks) finishes well within <= 30s and is deterministic [33m1409[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
 [2m      Tests [22m [1m[32m25 passed[39m[22m[90m (25)[39m
-[2m   Start at [22m 17:20:17
-[2m   Duration [22m 6.32s[2m (transform 1.04s, setup 0ms, collect 1.92s, tests 5.27s, environment 3ms, prepare 3.80s)[22m
+[2m   Start at [22m 17:56:25
+[2m   Duration [22m 5.00s[2m (transform 894ms, setup 0ms, collect 1.42s, tests 4.01s, environment 3ms, prepare 2.97s)[22m
 
-[PASS] Headless Night 1 determinism (seed=42, ticks=1200) (401ms)
+[PASS] Headless Night 1 determinism (seed=42, ticks=1200) (236ms)
 $ sha256(n1-r1) === sha256(n1-r2)
 IDENTICAL (sha256=7a0eecf13d9aa7b5520e733cd4102f474eb66db8f24ed72030b9525759c9dba1, lines=126)
 end={"type":"end","ticks":1200,"state":"playing","score":0}
 
-[PASS] Headless Night 2 determinism (seed=42, ticks=1200) (388ms)
+[PASS] Headless Night 2 determinism (seed=42, ticks=1200) (308ms)
 $ sha256(n2-r1) === sha256(n2-r2)
 IDENTICAL (sha256=3b5b5144ad93b7f5f79f173c8bd2d4b8004f74a25d11dc65937bfc23b0e4f84a, lines=127)
 end={"type":"end","ticks":1200,"state":"playing","score":0}
 
-[PASS] Headless Night 3 determinism (seed=42, ticks=1200) (446ms)
+[PASS] Headless Night 3 determinism (seed=42, ticks=1200) (518ms)
 $ sha256(n3-r1) === sha256(n3-r2)
 IDENTICAL (sha256=39d6aa5eadc7d0c5fd2bb4024a61adf2367818cf7b134719fafd226f088fbaf3, lines=127)
 end={"type":"end","ticks":1200,"state":"playing","score":0}
 
-[PASS] Headless full Night 3 performance budget (<= 30,000ms) (790ms)
+[PASS] Headless full Night 3 performance budget (<= 30,000ms) (1122ms)
 $ node dist/headless.mjs --seed 2026 --night 3 --ticks 18000 --snapshot-every 10
-COMPLETED in 790ms (budget 30000ms), lines=1127
+COMPLETED in 1122ms (budget 30000ms), lines=1127
 end={"type":"end","ticks":11099,"state":"lost","score":0}
 
 [PASS] 3D Benchmark report validation (bench.json) (1ms)

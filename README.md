@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng — Bình Minh v1.0.0 (Day 12 AI SDLC)
 
-> **Video demo (`.mp4` < 5 phút):** [Xem video demo tại Release v1.0.0](https://github.com/kegacua/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long/releases/tag/v1.0.0) *(hoặc `docs/demo/demo.mp4` sau khi đính kèm)*
+> **Video demo (`.mp4` < 5 phút, `35.3s` 1280×720 H.264):** [Xem `docs/demo/demo.mp4`](docs/demo/demo.mp4) · [GitHub Release v1.0.0](https://github.com/kegacua/K5-L3A-DAY12-LuuDangTuan-2A202603454-AI-SDLC-Dao-Den-Long/releases/tag/v1.0.0)
 > **Phiên bản:** `v1.0.0` · **Test Contract:** `v1.3` · **Tag các phase:** `phase-1` · `phase-2` · `phase-3` · `phase-4`
 
 **Đảo Đèn Lồng** là game 3D góc nhìn thứ ba: điều khiển **Mây** (đội nón lá treo đèn lồng nhỏ) qua Ba Hòn Đảo (**Đảo Bến**, **Đảo Cau**, **Đảo Chuông**), thu thập đom đóm, thắp & **châm dầu giữ đèn sáng tới bình minh**, xua **Bóng Mực** bằng **Tỏa Sáng**, né **Gió Lạc** và **Gió mạnh**.
