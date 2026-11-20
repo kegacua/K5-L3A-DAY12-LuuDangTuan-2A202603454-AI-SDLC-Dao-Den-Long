@@ -116,6 +116,16 @@ export class FairyAudio {
     });
   }
 
+  public playRefuel(): void {
+    this.playTone(587.33, 0.15, 'sine', 0.11);
+    this.playTone(880.0, 0.2, 'triangle', 0.09, 0.05);
+  }
+
+  public playLanternOut(): void {
+    this.playTone(330, 0.3, 'sine', 0.11, 0, 150);
+    this.playTone(220, 0.35, 'triangle', 0.08, 0.08, 110);
+  }
+
   public playPulse(): void {
     this.playTone(300, 0.3, 'sine', 0.16, 0, 920);
     this.playTone(620, 0.26, 'triangle', 0.09, 0.04, 1180);

@@ -1,11 +1,16 @@
 import * as THREE from 'three';
-import { DEFAULT_TUNING, FIXED_DT, TICK_RATE } from '../core/config.js';
+import {
+  DEFAULT_TUNING,
+  FIXED_DT,
+  FUEL_UNITS_PER_POINT,
+  getPlayerCapacity,
+  TICK_RATE,
+} from '../core/config.js';
 import { NIGHT_MAPS } from '../core/maps.js';
-import { createWorld, distXZ, stepWorld } from '../core/simulation.js';
+import { createWorld, distXZ, hasActiveSafeZone, stepWorld } from '../core/simulation.js';
 import type { EffectiveInput, EventRecord, NightId, WorldState } from '../core/types.js';
 import { FairyAudio } from './audio.js';
 
-// Standardized Ticket-02 Palette (exact hex values)
 const PALETTE = {
   sky: 0x0e1430,
   fog: 0x1b2350,
@@ -20,20 +25,23 @@ const PALETTE = {
   moteHalo: 0xffe58a,
   shadeBody: 0x120a1a,
   shadeRim: 0x7a3cff,
+  shadeRimColorblind: 0x00b3ff,
   shadeStunned: 0x3a3450,
   mayCloak: 0xe8e2d0,
   mayScarf: 0xc8102e,
   gold: 0xf2c14e,
   drifter: 0x8fa3b8,
   danger: 0xff5a5f,
+  dangerColorblind: 0xffffff,
   uiText: 0xf5f1e6,
 };
 
-const SETTINGS_KEY = 'dao-den-long-settings-v1';
+const SETTINGS_KEY = 'dao-den-long-settings-v2';
 
 interface SavedSettings {
   volume: number;
   sensitivity: number;
+  colorblind: boolean;
 }
 
 function loadSettings(): SavedSettings {
@@ -47,12 +55,13 @@ function loadSettings(): SavedSettings {
           typeof parsed.sensitivity === 'number'
             ? Math.max(30, Math.min(250, parsed.sensitivity))
             : 100,
+        colorblind: Boolean(parsed.colorblind),
       };
     }
   } catch {
     // ignore storage errors
   }
-  return { volume: 65, sensitivity: 100 };
+  return { volume: 65, sensitivity: 100, colorblind: false };
 }
 
 function saveSettings(s: SavedSettings): void {
@@ -100,21 +109,30 @@ const volumeSlider = document.getElementById('volume-slider') as HTMLInputElemen
 const volumeValEl = document.getElementById('volume-val')!;
 const sensSlider = document.getElementById('sens-slider') as HTMLInputElement;
 const sensValEl = document.getElementById('sens-val')!;
+const colorblindToggle = document.getElementById('colorblind-toggle') as HTMLInputElement;
 
-// Populate 10 firefly HUD slots
+// Dynamic capacity firefly slots (up to capacity_max = 20)
 const moteSlotEls: HTMLDivElement[] = [];
-for (let i = 0; i < DEFAULT_TUNING.carry_capacity; i += 1) {
-  const slot = document.createElement('div');
-  slot.className = 'mote-slot';
-  moteSlotsEl.appendChild(slot);
-  moteSlotEls.push(slot);
+function ensureSlotCount(capacity: number): void {
+  while (moteSlotEls.length < capacity) {
+    const slot = document.createElement('div');
+    slot.className = 'mote-slot';
+    moteSlotsEl.appendChild(slot);
+    moteSlotEls.push(slot);
+  }
+  for (let i = 0; i < moteSlotEls.length; i += 1) {
+    moteSlotEls[i]!.style.display = i < capacity ? 'block' : 'none';
+  }
 }
+ensureSlotCount(DEFAULT_TUNING.carry_capacity);
 
 const settings = loadSettings();
 volumeSlider.value = String(settings.volume);
 volumeValEl.textContent = `${settings.volume}%`;
 sensSlider.value = String(settings.sensitivity);
 sensValEl.textContent = `${(settings.sensitivity / 100).toFixed(1)}x`;
+colorblindToggle.checked = settings.colorblind;
+document.body.classList.toggle('colorblind', settings.colorblind);
 
 const audio = new FairyAudio();
 audio.setVolume(settings.volume / 100);
@@ -139,7 +157,6 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
 
-// Ambient intensity follows Ticket-02 exact formula: 0.15 + 0.55 * (lit / total)
 const ambientLight = new THREE.AmbientLight(0xd8e0ff, 0.15);
 scene.add(ambientLight);
 
@@ -154,7 +171,6 @@ moonLight.shadow.camera.top = dCam;
 moonLight.shadow.camera.bottom = -dCam;
 scene.add(moonLight);
 
-// Cloud sea plane below islands
 const cloudSea = new THREE.Mesh(
   new THREE.CircleGeometry(220, 48),
   new THREE.MeshStandardMaterial({ color: PALETTE.cloudSea, roughness: 0.95 }),
@@ -163,7 +179,6 @@ cloudSea.rotation.x = -Math.PI / 2;
 cloudSea.position.y = -11;
 scene.add(cloudSea);
 
-// Starfield
 const starPos: number[] = [];
 for (let i = 0; i < 360; i += 1) {
   const u = ((i * 73) % 360) * (Math.PI / 180);
@@ -179,7 +194,6 @@ scene.add(
   ),
 );
 
-// Wind leaves particle group (Night 3 warning & gust visual)
 const windLeaves = new THREE.Group();
 const leafGeo = new THREE.PlaneGeometry(0.35, 0.18);
 const leafMat = new THREE.MeshBasicMaterial({ color: PALETTE.gold, side: THREE.DoubleSide });
@@ -218,7 +232,6 @@ function buildNightEnvironment(night: NightId): THREE.Group {
     pier.position.set(0, 0.12, 36.5);
     group.add(pier);
   } else if (night === 2) {
-    // Island A (0,0) R=28 & Island B (70,0) R=28
     for (const cx of [0, 70]) {
       const isl = new THREE.Mesh(new THREE.CylinderGeometry(28, 29, 3, 48), grassMat);
       isl.position.set(cx, -1.5, 0);
@@ -230,37 +243,31 @@ function buildNightEnvironment(night: NightId): THREE.Group {
       group.add(centerSand);
     }
 
-    // Bamboo bridge x in [26, 44], z in [-2, 2], no railings
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(18, 0.3, 4), woodMat);
     bridge.position.set(35, -0.15, 0);
     bridge.receiveShadow = true;
     group.add(bridge);
   } else {
-    // Night 3: Đảo Chuông — 3 tiers + 2 ramps + Bell Tower
     const tier0 = new THREE.Mesh(new THREE.CylinderGeometry(45, 46.5, 3, 64), grassMat);
     tier0.position.y = -1.5;
     tier0.receiveShadow = true;
     group.add(tier0);
 
-    // Tier 1: half annulus r=12..24, z > 0, Y = 3
     const tier1Shape = new THREE.Shape();
     tier1Shape.absarc(0, 0, 24, 0, Math.PI, false);
     tier1Shape.absarc(0, 0, 12, Math.PI, 0, true);
     const tier1Geo = new THREE.ExtrudeGeometry(tier1Shape, { depth: 3, bevelEnabled: false });
-    // ExtrudeGeometry builds in XY plane; rotateX(+PI/2) maps +Y -> +Z and +Z depth -> -Y!
     tier1Geo.rotateX(Math.PI / 2);
     const tier1 = new THREE.Mesh(tier1Geo, sandMat);
     tier1.position.y = 3;
     tier1.receiveShadow = true;
     group.add(tier1);
 
-    // Tier 2: center disk r=8, Y=6
     const tier2 = new THREE.Mesh(new THREE.CylinderGeometry(8, 8.2, 6, 32), sandMat);
     tier2.position.y = 3;
     tier2.receiveShadow = true;
     group.add(tier2);
 
-    // 2 straight wooden ramps at 30° and 150° from r=30 (Y=0) to r=24 (Y=3), width 3m
     const rampLen = Math.hypot(6, 3);
     const rampPitch = Math.atan2(3, 6);
     for (const deg of [30, 150]) {
@@ -268,17 +275,14 @@ function buildNightEnvironment(night: NightId): THREE.Group {
       const rampHolder = new THREE.Group();
       const midR = 27;
       rampHolder.position.set(Math.cos(rad) * midR, 1.5, Math.sin(rad) * midR);
-      // Local +X points radially outward (cos(rad), 0, sin(rad)) -> rotation.y = -rad
       rampHolder.rotation.y = -rad;
       const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(rampLen, 0.25, 3), woodMat);
-      // Higher toward inner (-X), lower toward outer (+X)
       rampMesh.rotation.z = -rampPitch;
       rampMesh.receiveShadow = true;
       rampHolder.add(rampMesh);
       group.add(rampHolder);
     }
 
-    // Bell Tower at center of Tier 2: cylinder radius 2m, height 8m
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 8, 20), woodMat);
     tower.position.set(0, 10, 0);
     tower.castShadow = true;
@@ -292,7 +296,6 @@ function buildNightEnvironment(night: NightId): THREE.Group {
     group.add(bellRoof);
   }
 
-  // Jump pads visual discs
   for (const pad of NIGHT_MAPS[night].jumpPads) {
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(pad.radius, pad.radius * 1.15, 0.22, 20), padMat);
     disc.position.set(pad.pos[0], pad.pos[1] + 0.11, pad.pos[2]);
@@ -302,7 +305,7 @@ function buildNightEnvironment(night: NightId): THREE.Group {
   return group;
 }
 
-// --- Mây Rig (Exact Palette: #E8E2D0 cloak, #C8102E scarf, nón lá + hanging lantern) ---
+// --- Mây Rig ---
 interface PlayerRig {
   root: THREE.Group;
   body: THREE.Group;
@@ -338,7 +341,6 @@ function buildPlayerRig(): PlayerRig {
   head.position.y = 1.34;
   body.add(head);
 
-  // Nón lá
   const nonLa = new THREE.Mesh(
     new THREE.ConeGeometry(0.74, 0.4, 20),
     new THREE.MeshStandardMaterial({ color: PALETTE.sand, roughness: 0.8 }),
@@ -346,7 +348,6 @@ function buildPlayerRig(): PlayerRig {
   nonLa.position.y = 1.62;
   body.add(nonLa);
 
-  // Small hanging lantern
   const miniLantern = new THREE.Mesh(
     new THREE.OctahedronGeometry(0.13, 0),
     new THREE.MeshStandardMaterial({
@@ -379,12 +380,17 @@ function buildPlayerRig(): PlayerRig {
   return { root, body, miniLanternLight, pulseRing };
 }
 
-// --- Entity Visual Factories ---
+// --- Lantern Visual with Fuel Bar + Non-Color Torn/Squished Unlit Shape ---
 interface LanternVis {
   group: THREE.Group;
+  coreMesh: THREE.Mesh;
   coreMat: THREE.MeshStandardMaterial;
+  tearMarks: THREE.Group;
   light: THREE.PointLight;
   safeRing: THREE.Mesh;
+  fuelBarGroup: THREE.Group;
+  fuelFill: THREE.Mesh;
+  fuelFillMat: THREE.MeshBasicMaterial;
 }
 
 function createLanternVis(pos: [number, number, number]): LanternVis {
@@ -410,9 +416,23 @@ function createLanternVis(pos: [number, number, number]): LanternVis {
     emissive: PALETTE.lanternUnlit,
     emissiveIntensity: 0.2,
   });
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), coreMat);
-  core.position.y = 3.1;
-  group.add(core);
+  const coreMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.72, 0), coreMat);
+  coreMesh.position.y = 3.1;
+  group.add(coreMesh);
+
+  // Non-color distinction for unlit lanterns: visible dark paper tear slashes
+  const tearMarks = new THREE.Group();
+  tearMarks.position.y = 3.1;
+  const tearMat = new THREE.MeshBasicMaterial({ color: 0x120a1a, side: THREE.DoubleSide });
+  for (let i = 0; i < 4; i += 1) {
+    const a = (i / 4) * Math.PI * 2;
+    const slash = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.1), tearMat);
+    slash.position.set(Math.cos(a) * 0.56, 0, Math.sin(a) * 0.56);
+    slash.rotation.y = -a + Math.PI / 2;
+    slash.rotation.z = 0.45;
+    tearMarks.add(slash);
+  }
+  group.add(tearMarks);
 
   const light = new THREE.PointLight(PALETTE.lanternLit, 0, 24, 1.45);
   light.position.y = 3.1;
@@ -432,7 +452,26 @@ function createLanternVis(pos: [number, number, number]): LanternVis {
   safeRing.visible = false;
   group.add(safeRing);
 
-  return { group, coreMat, light, safeRing };
+  // Overhead 3D Fuel Bar (visible when lit)
+  const fuelBarGroup = new THREE.Group();
+  fuelBarGroup.position.y = 4.45;
+  const fuelBg = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.1, 0.26),
+    new THREE.MeshBasicMaterial({ color: 0x0e1430, side: THREE.DoubleSide }),
+  );
+  const fuelFillMat = new THREE.MeshBasicMaterial({
+    color: PALETTE.lanternLit,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1,
+  });
+  const fuelFill = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.18), fuelFillMat);
+  fuelFill.position.z = 0.01;
+  fuelBarGroup.add(fuelBg, fuelFill);
+  fuelBarGroup.visible = false;
+  group.add(fuelBarGroup);
+
+  return { group, coreMesh, coreMat, tearMarks, light, safeRing, fuelBarGroup, fuelFill, fuelFillMat };
 }
 
 const sharedMoteGeo = new THREE.SphereGeometry(0.24, 10, 8);
@@ -450,21 +489,25 @@ function createMoteVis(): THREE.Group {
   return g;
 }
 
-function createShadeVis(): {
+interface ShadeVis {
   group: THREE.Group;
   bodyMat: THREE.MeshStandardMaterial;
+  eyeMat: THREE.MeshBasicMaterial;
   halo: THREE.Mesh;
-} {
+}
+
+function createShadeVis(): ShadeVis {
   const group = new THREE.Group();
+  const rimHex = settings.colorblind ? PALETTE.shadeRimColorblind : PALETTE.shadeRim;
   const bodyMat = new THREE.MeshStandardMaterial({
     color: PALETTE.shadeBody,
-    emissive: PALETTE.shadeRim,
+    emissive: rimHex,
     emissiveIntensity: 0.55,
     roughness: 0.6,
   });
   group.add(new THREE.Mesh(new THREE.SphereGeometry(0.68, 12, 10), bodyMat));
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: PALETTE.shadeRim });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: rimHex });
   const eL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), eyeMat);
   const eR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), eyeMat);
   eL.position.set(-0.22, 0.15, 0.6);
@@ -480,7 +523,7 @@ function createShadeVis(): {
   halo.visible = false;
   group.add(halo);
 
-  return { group, bodyMat, halo };
+  return { group, bodyMat, eyeMat, halo };
 }
 
 function createDrifterVis(): THREE.Group {
@@ -493,8 +536,7 @@ function createDrifterVis(): THREE.Group {
     opacity: 0.86,
     side: THREE.DoubleSide,
   });
-  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 2.2), mat);
-  g.add(ribbon);
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 2.2), mat));
   return g;
 }
 
@@ -533,7 +575,7 @@ scene.add(playerRig.root);
 
 const lanternVisMap = new Map<string, LanternVis>();
 const moteVisMap = new Map<string, THREE.Group>();
-const shadeVisMap = new Map<string, { group: THREE.Group; bodyMat: THREE.MeshStandardMaterial; halo: THREE.Mesh }>();
+const shadeVisMap = new Map<string, ShadeVis>();
 const drifterVisMap = new Map<string, THREE.Group>();
 const charmVisMap = new Map<string, THREE.Group>();
 
@@ -550,6 +592,15 @@ let qInteract = false;
 let qPulse = false;
 let qDash = false;
 let qPause = false;
+
+function applyColorblindMode(): void {
+  document.body.classList.toggle('colorblind', settings.colorblind);
+  const rimHex = settings.colorblind ? PALETTE.shadeRimColorblind : PALETTE.shadeRim;
+  for (const s of shadeVisMap.values()) {
+    s.bodyMat.emissive.setHex(rimHex);
+    s.eyeMat.color.setHex(rimHex);
+  }
+}
 
 function clearDynamicVisuals(): void {
   for (const v of lanternVisMap.values()) scene.remove(v.group);
@@ -614,8 +665,9 @@ function showNightIntro(night: NightId): void {
   uiScreen = 'intro';
   hideAllModals();
   hudEl.classList.add('hidden');
+  const reqLit = Math.ceil(DEFAULT_TUNING.win_ratio * world.lanterns.length);
   introTitleEl.textContent = NIGHT_MAPS[night].name;
-  introQuoteEl.textContent = NIGHT_MAPS[night].introQuote;
+  introQuoteEl.textContent = `${NIGHT_MAPS[night].introQuote} (Giữ ít nhất ${reqLit}/${world.lanterns.length} đèn sáng tới bình minh!)`;
   introModal.classList.add('visible');
 }
 
@@ -640,30 +692,30 @@ function showNightResult(won: boolean, reason: string): void {
   }
 
   const isFinalDawn = won && currentNight === 3;
+  const reqLit = Math.ceil(DEFAULT_TUNING.win_ratio * world.lanterns.length);
   resultCardEl.classList.toggle('lost', !won);
 
   if (isFinalDawn) {
     resultTitleEl.textContent = 'Bình Minh Trên Ba Hòn Đảo!';
     resultDescEl.textContent =
-      'Mây đã thắp sáng trọn vẹn Đảo Bến, Đảo Cau và Đảo Chuông! Sương đen tan biến khi ánh nắng đầu tiên chiếu rọi biển mây.';
+      'Mây đã giữ vững ánh sáng qua Đảo Bến, Đảo Cau và Đảo Chuông tới tận bình minh!';
     btnResultPrimary.textContent = 'Chơi lại từ Đêm 1';
   } else if (won) {
-    resultTitleEl.textContent = `Hoàn thành ${NIGHT_MAPS[currentNight].name}!`;
-    resultDescEl.textContent = 'Tất cả Đèn Lồng Lớn đã bừng sáng. Chuẩn bị sang hòn đảo tiếp theo!';
+    resultTitleEl.textContent = `Đón Bình Minh tại ${NIGHT_MAPS[currentNight].name}!`;
+    resultDescEl.textContent = 'Hòn đảo đã giữ vững ánh sáng tới bình minh. Chuẩn bị sang đảo tiếp theo!';
     btnResultPrimary.textContent = `Sang Đêm ${currentNight + 1}`;
   } else {
     resultTitleEl.textContent = 'Đêm chưa vượt qua...';
     resultDescEl.textContent =
       reason === 'dawn'
-        ? 'Thời gian Đêm đã hết trước khi thắp đủ đèn.'
-        : 'Mây đã mất hết Ngọn Lửa. Hãy tận dụng Lướt [Shift], Tỏa Sáng [F] và vùng an toàn đèn sáng!';
+        ? `Khi bình minh tới, cần ít nhất ${reqLit}/${world.lanterns.length} đèn đang sáng. Hãy châm dầu và canh Bóng Mực hút dầu!`
+        : 'Mây đã mất hết Ngọn Lửa. Hãy dùng Lướt [Shift], Tỏa Sáng [F] và vùng an toàn đèn sáng (dầu ≥ 30)!';
     btnResultPrimary.textContent = `Chơi lại Đêm ${currentNight}`;
   }
 
   const litCount = world.lanterns.filter((l) => l.lit).length;
   resultStatsEl.innerHTML = `
-    <div class="stat-row"><span>Đèn Lồng đã thắp</span><span>${litCount} / ${world.lanterns.length}</span></div>
-    <div class="stat-row"><span>Thời gian còn lại</span><span>${Math.floor(world.timeLeftS)}s</span></div>
+    <div class="stat-row"><span>Đèn sáng lúc kết thúc</span><span>${litCount} / ${world.lanterns.length} (cần ${reqLit})</span></div>
     <div class="stat-row"><span>Ngọn Lửa còn lại</span><span>${world.player.flames}</span></div>
     <div class="stat-row"><span>Điểm Đêm ${currentNight}</span><span>${world.score}</span></div>
     <div class="stat-row" style="color:#F2C14E;font-weight:800"><span>Tổng điểm hành trình</span><span>${campaignTotalScore}</span></div>
@@ -713,8 +765,14 @@ sensSlider.addEventListener('input', () => {
   sensValEl.textContent = `${(settings.sensitivity / 100).toFixed(1)}x`;
 });
 
+colorblindToggle.addEventListener('change', () => {
+  settings.colorblind = colorblindToggle.checked;
+  applyColorblindMode();
+});
+
 document.getElementById('btn-settings-close')!.addEventListener('click', () => {
   saveSettings(settings);
+  applyColorblindMode();
   hideAllModals();
   if (settingsReturnScreen === 'menu') menuModal.classList.add('visible');
   else pauseModal.classList.add('visible');
@@ -813,8 +871,12 @@ function handleEvents(events: EventRecord[]): void {
       audio.playMotePick(Number(ev.data.carried ?? 1));
     } else if (ev.name === 'deposit') {
       audio.playDeposit();
+    } else if (ev.name === 'refuel') {
+      audio.playRefuel();
     } else if (ev.name === 'lantern_lit') {
       audio.playLanternLit();
+    } else if (ev.name === 'lantern_out') {
+      audio.playLanternOut();
     } else if (ev.name === 'pulse') {
       audio.playPulse();
       pulseAnimElapsed = 0;
@@ -842,10 +904,10 @@ const projVec = new THREE.Vector3();
 function syncVisualsAndHud(dtSec: number, nowSec: number): void {
   const litCount = world.lanterns.filter((l) => l.lit).length;
   const totalLanterns = Math.max(1, world.lanterns.length);
-  // Exact Ticket-02 Ambient progression formula: 0.15 + 0.55 * (lit / total)
+  const reqLit = Math.ceil(DEFAULT_TUNING.win_ratio * totalLanterns);
   ambientLight.intensity = 0.15 + 0.55 * (litCount / totalLanterns);
 
-  // Wind visuals & audio warning (Night 3)
+  // Wind visuals
   if (world.wind.warning && !prevWindWarning) {
     audio.playWindWarning();
   }
@@ -866,9 +928,10 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
     }
     windBannerEl.classList.add('visible');
     windBannerEl.classList.toggle('active', world.wind.active);
+    const warnIcon = settings.colorblind ? '⚠ ' : '';
     windBannerEl.textContent = world.wind.active
-      ? `Gió mạnh đang thổi (${Math.round(world.wind.dirDeg)}°)!`
-      : 'Lá bay — Cơn gió sắp nổi...';
+      ? `${warnIcon}Gió mạnh đang thổi (${Math.round(world.wind.dirDeg)}°)!`
+      : `${warnIcon}Lá bay — Cơn gió sắp nổi...`;
   } else {
     windLeaves.visible = false;
     windBannerEl.classList.remove('visible', 'active');
@@ -880,7 +943,7 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
   playerRig.body.visible =
     !world.player.fallPending &&
     (world.player.invulnTicks <= 0 || Math.floor(world.player.invulnTicks / 6) % 2 === 0);
-  playerRig.miniLanternLight.intensity = 7 + world.player.carried * 2.2;
+  playerRig.miniLanternLight.intensity = 7 + world.player.carried * 1.6;
 
   if (pulseAnimElapsed < 0.4) {
     pulseAnimElapsed += dtSec;
@@ -892,38 +955,69 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
     playerRig.pulseRing.visible = false;
   }
 
-  // Sync lanterns & find nearest unlit for HUD prompt + off-screen compass arrow
-  let nearUnlit: { id: string; deposited: number } | null = null;
-  let nearestUnlitPos: [number, number, number] | null = null;
-  let nearestUnlitDist = Infinity;
+  // 1 Hz slow blink wave for low-fuel lanterns (fuel < 30)
+  const blink1Hz = 0.5 + 0.5 * Math.sin(nowSec * Math.PI * 2);
+  const fuelMaxUnits = DEFAULT_TUNING.fuel_max * FUEL_UNITS_PER_POINT;
+
+  let nearPrompt: string | null = null;
+  let nearestPriorityPos: [number, number, number] | null = null;
+  let nearestPriorityDist = Infinity;
 
   for (const l of world.lanterns) {
     const vis = lanternVisMap.get(l.id);
+    const fuelPct = l.fuelSixtieths / FUEL_UNITS_PER_POINT;
+    const lowFuel = l.lit && fuelPct < DEFAULT_TUNING.low_fuel_threshold;
+    const activeSafe = hasActiveSafeZone(l, DEFAULT_TUNING);
+
     if (vis) {
       if (l.lit) {
+        // Full shape, no tears
+        vis.coreMesh.scale.set(1, 1, 1);
+        vis.tearMarks.visible = false;
         vis.coreMat.color.setHex(PALETTE.lanternCore);
         vis.coreMat.emissive.setHex(PALETTE.lanternLit);
-        vis.coreMat.emissiveIntensity = 1.9;
-        vis.light.intensity = 30;
-        vis.safeRing.visible = true;
+        vis.coreMat.emissiveIntensity = lowFuel ? 0.5 + blink1Hz * 1.4 : 1.9;
+        vis.light.intensity = lowFuel ? 8 + blink1Hz * 20 : 30;
+        vis.safeRing.visible = activeSafe;
+
+        // Fuel bar faces camera, blinks at 1 Hz when fuel < 30
+        vis.fuelBarGroup.visible = true;
+        vis.fuelBarGroup.lookAt(camera.position);
+        const ratio = Math.max(0.02, Math.min(1, l.fuelSixtieths / fuelMaxUnits));
+        vis.fuelFill.scale.x = ratio;
+        vis.fuelFill.position.x = -(1 - ratio);
+        const dangerColor = settings.colorblind ? PALETTE.dangerColorblind : PALETTE.danger;
+        vis.fuelFillMat.color.setHex(lowFuel ? dangerColor : PALETTE.lanternLit);
+        vis.fuelFillMat.opacity = lowFuel ? 0.35 + blink1Hz * 0.65 : 1;
       } else {
+        // Non-color distinction: squished 20% vertically + visible paper tears
+        vis.coreMesh.scale.set(1.06, 0.8, 1.06);
+        vis.tearMarks.visible = true;
         vis.coreMat.color.setHex(PALETTE.lanternUnlit);
         vis.coreMat.emissive.setHex(PALETTE.lanternUnlit);
-        vis.coreMat.emissiveIntensity = 0.25;
+        vis.coreMat.emissiveIntensity = 0.2;
         vis.light.intensity = 0;
         vis.safeRing.visible = false;
+        vis.fuelBarGroup.visible = false;
       }
     }
 
-    if (!l.lit) {
-      const d = distXZ(world.player.pos, l.pos);
-      if (d <= DEFAULT_TUNING.interact_radius) {
-        nearUnlit = { id: l.id, deposited: l.deposited };
+    const d = distXZ(world.player.pos, l.pos);
+    if (d <= DEFAULT_TUNING.interact_radius) {
+      if (!l.lit) {
+        const cost = l.everLit ? DEFAULT_TUNING.relight_cost : DEFAULT_TUNING.lantern_cost;
+        nearPrompt = l.everLit
+          ? `E — Thắp lại đèn (${l.deposited}/${cost})`
+          : `E — Nạp ánh sáng (${l.deposited}/${cost})`;
+      } else if (l.fuelSixtieths < fuelMaxUnits) {
+        nearPrompt = `E — Châm dầu (${Math.round(fuelPct)}/100)`;
       }
-      if (d < nearestUnlitDist) {
-        nearestUnlitDist = d;
-        nearestUnlitPos = l.pos;
-      }
+    }
+
+    // Off-screen arrow targets nearest unlit or low-fuel lantern
+    if ((!l.lit || lowFuel) && d < nearestPriorityDist) {
+      nearestPriorityDist = d;
+      nearestPriorityPos = l.pos;
     }
   }
 
@@ -953,6 +1047,7 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
       shadeVisMap.delete(id);
     }
   }
+  const rimHex = settings.colorblind ? PALETTE.shadeRimColorblind : PALETTE.shadeRim;
   for (const s of world.shades) {
     let item = shadeVisMap.get(s.id);
     if (!item) {
@@ -960,6 +1055,8 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
       shadeVisMap.set(s.id, item);
       scene.add(item.group);
     }
+    item.bodyMat.emissive.setHex(rimHex);
+    item.eyeMat.color.setHex(rimHex);
     item.group.position.set(s.pos[0], s.pos[1] + Math.sin(nowSec * 4 + s.pos[0]) * 0.12, s.pos[2]);
     if (s.state === 'stunned') {
       item.halo.visible = true;
@@ -968,6 +1065,7 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
     } else {
       item.halo.visible = false;
       item.bodyMat.color.setHex(PALETTE.shadeBody);
+      item.bodyMat.emissiveIntensity = s.state === 'drain' ? 1.15 : 0.55;
       item.group.lookAt(world.player.pos[0], s.pos[1], world.player.pos[2]);
     }
   }
@@ -1015,9 +1113,9 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
   );
   camera.lookAt(world.player.pos[0], world.player.pos[1] + 1.4, world.player.pos[2]);
 
-  // Off-screen compass arrow to nearest unlit lantern
-  if (uiScreen === 'playing' && nearestUnlitPos) {
-    projVec.set(nearestUnlitPos[0], nearestUnlitPos[1] + 2.8, nearestUnlitPos[2]).project(camera);
+  // Off-screen arrow
+  if (uiScreen === 'playing' && nearestPriorityPos) {
+    projVec.set(nearestPriorityPos[0], nearestPriorityPos[1] + 2.8, nearestPriorityPos[2]).project(camera);
     const inFront = projVec.z < 1;
     const onScreen = inFront && Math.abs(projVec.x) <= 0.92 && Math.abs(projVec.y) <= 0.92;
     if (!onScreen) {
@@ -1031,10 +1129,8 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
       const pad = 56;
       const hw = window.innerWidth / 2 - pad;
       const hh = window.innerHeight / 2 - pad;
-      const px = window.innerWidth / 2 + Math.cos(angle) * hw;
-      const py = window.innerHeight / 2 - Math.sin(angle) * hh;
-      lanternArrowEl.style.left = `${px}px`;
-      lanternArrowEl.style.top = `${py}px`;
+      lanternArrowEl.style.left = `${window.innerWidth / 2 + Math.cos(angle) * hw}px`;
+      lanternArrowEl.style.top = `${window.innerHeight / 2 - Math.sin(angle) * hh}px`;
       lanternArrowEl.style.transform = `rotate(${90 - (angle * 180) / Math.PI}deg)`;
       lanternArrowEl.classList.add('visible');
     } else {
@@ -1060,16 +1156,22 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
   }
   const mm = String(Math.floor(secsLeft / 60)).padStart(2, '0');
   const ss = String(secsLeft % 60).padStart(2, '0');
-  timerValEl.textContent = `${mm}:${ss}`;
-  timerValEl.classList.toggle('danger', secsLeft <= 30);
+  const isDangerTime = secsLeft <= 30;
+  timerValEl.textContent = isDangerTime && settings.colorblind ? `⚠ ${mm}:${ss}` : `${mm}:${ss}`;
+  timerValEl.classList.toggle('danger', isDangerTime);
 
-  lanternsValEl.textContent = `Đèn: ${litCount} / ${world.lanterns.length}`;
+  lanternsValEl.textContent = `Đèn: ${litCount} / ${totalLanterns} (cần ${reqLit})`;
   scoreValEl.textContent = `Điểm: ${world.score}`;
 
-  moteBarLabelEl.textContent = `Đom đóm: ${world.player.carried} / ${DEFAULT_TUNING.carry_capacity}`;
-  moteSlotEls.forEach((el, idx) => el.classList.toggle('filled', idx < world.player.carried));
+  // Dynamic carry capacity HUD
+  const capacity = getPlayerCapacity(world.player.successfulLights, DEFAULT_TUNING);
+  ensureSlotCount(capacity);
+  moteBarLabelEl.textContent = `Đom đóm: ${world.player.carried} / ${capacity}`;
+  for (let i = 0; i < capacity; i += 1) {
+    moteSlotEls[i]!.classList.toggle('filled', i < world.player.carried);
+  }
 
-  // Dash & Pulse cooldown icons
+  // Ability icons
   const dashReady = world.player.dashCdTicks === 0 || world.player.charmTicks > 0;
   dashBoxEl.classList.toggle('ready', dashReady);
   dashBoxEl.classList.toggle('cd', !dashReady);
@@ -1091,16 +1193,14 @@ function syncVisualsAndHud(dtSec: number, nowSec: number): void {
         ? `Cần ${DEFAULT_TUNING.pulse_cost}`
         : 'Sẵn sàng';
 
-  // Exact Ticket-02 E prompt: "E — Nạp ánh sáng (x/10)"
-  if (uiScreen === 'playing' && nearUnlit) {
-    actionHintEl.textContent = `E — Nạp ánh sáng (${nearUnlit.deposited}/${DEFAULT_TUNING.lantern_cost})`;
+  if (uiScreen === 'playing' && nearPrompt) {
+    actionHintEl.textContent = nearPrompt;
     actionHintEl.classList.add('visible');
   } else {
     actionHintEl.classList.remove('visible');
   }
 }
 
-// Fixed 60Hz loop + FPS counter
 let accumulator = 0;
 let lastFrameMs = performance.now();
 let fpsFrames = 0;
@@ -1145,5 +1245,6 @@ window.addEventListener('resize', () => {
 });
 
 loadNightWorld(1);
+applyColorblindMode();
 showMenu();
 requestAnimationFrame(animate);
