@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,20 +45,39 @@ function runCmd(cmd, args, label) {
 }
 
 function checkTrackedSecrets() {
-  const res = runCmd('git', ['ls-files'], 'Secret file scan');
+  const res = runCmd('git', ['ls-files'], 'Secret file scan (working tree + git history)');
   if (!res.ok) return res;
   const files = res.output.split(/\r?\n/).filter(Boolean);
   const forbidden = files.filter(
-    (f) => /(^|\/)\.env($|\.)/i.test(f) && !/\.env\.example$/i.test(f),
+    (f) => /(^|\/)\.env($|\.)|\.(pem|key)$/i.test(f) && !/\.env\.example$/i.test(f),
   );
-  if (forbidden.length > 0) {
+
+  // Also check all objects in git history for .env / key filenames
+  const histRes = runCmd('git', ['rev-list', '--all', '--objects'], 'Git history object scan');
+  let histForbidden = [];
+  if (histRes.ok) {
+    const objs = histRes.output.split(/\r?\n/).filter(Boolean);
+    histForbidden = objs.filter((line) => {
+      const pathPart = line.split(' ').slice(1).join(' ');
+      return (
+        pathPart.length > 0 &&
+        /(^|\/)\.env($|\.)|\.(pem|key)$/i.test(pathPart) &&
+        !/\.env\.example$/i.test(pathPart)
+      );
+    });
+  }
+
+  if (forbidden.length > 0 || histForbidden.length > 0) {
     return {
       ...res,
       ok: false,
-      output: `Tracked secret files detected: ${forbidden.join(', ')}`,
+      output: `Secret files detected! tracked=${forbidden.join(', ')} history=${histForbidden.join(', ')}`,
     };
   }
-  return { ...res, output: `OK (${files.length} tracked files checked, 0 .env files)` };
+  return {
+    ...res,
+    output: `OK (${files.length} tracked files + full git history scanned, 0 .env/key files)`,
+  };
 }
 
 function getGitHead() {
@@ -72,12 +91,11 @@ function main() {
 
   steps.push(checkTrackedSecrets());
   steps.push(runCmd(npmCmd, ['run', 'typecheck'], 'TypeScript typecheck'));
-  steps.push(runCmd(npmCmd, ['run', 'build'], 'Build web + headless'));
-  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract v1.2 test suite'));
+  steps.push(runCmd(npmCmd, ['run', 'build'], 'Build web + headless + bench + soak + app'));
+  steps.push(runCmd(npmCmd, ['test'], 'Unit & headless contract v1.3 test suite'));
 
   const tmpDir = mkdtempSync(join(os.tmpdir(), 'ddl-verify-'));
   try {
-    // Determinism check across Nights 1, 2, 3
     for (const night of ['1', '2', '3']) {
       const out1 = join(tmpDir, `n${night}-r1.jsonl`);
       const out2 = join(tmpDir, `n${night}-r2.jsonl`);
@@ -109,7 +127,6 @@ function main() {
       }
     }
 
-    // Performance check: Full Night 3 (18,000 ticks = 300s in v1.2) <= 30,000 ms
     const benchOut = join(tmpDir, 'bench-n3.jsonl');
     const bench = runCmd(
       process.execPath,
@@ -138,6 +155,38 @@ function main() {
         ? `COMPLETED in ${bench.elapsedMs}ms (budget 30000ms), lines=${benchLines.length}\nend=${benchLines[benchLines.length - 1]}`
         : bench.output,
     });
+
+    // Validate committed bench.json & soak.json if present
+    if (existsSync(resolve(rootDir, 'bench.json'))) {
+      const b = JSON.parse(readFileSync(resolve(rootDir, 'bench.json'), 'utf8'));
+      const ok =
+        b.contract_version === '1.3' &&
+        b.avg_fps >= 60 &&
+        b.p1_low_fps >= 30 &&
+        b.load_ms <= 10000;
+      steps.push({
+        ok,
+        label: '3D Benchmark report validation (bench.json)',
+        command: 'validate bench.json (avg_fps>=60, p1_low_fps>=30, load_ms<=10000)',
+        elapsedMs: 1,
+        output: JSON.stringify(b),
+      });
+    }
+
+    if (existsSync(resolve(rootDir, 'soak.json'))) {
+      const s = JSON.parse(readFileSync(resolve(rootDir, 'soak.json'), 'utf8'));
+      const ok =
+        s.nights === 10 &&
+        s.crashes === 0 &&
+        s.mem_end_mb <= 1.2 * s.mem_start_mb;
+      steps.push({
+        ok,
+        label: '10-Night Soak test report validation (soak.json)',
+        command: 'validate soak.json (nights=10, crashes=0, mem_end<=1.2*mem_start)',
+        elapsedMs: 1,
+        output: JSON.stringify(s),
+      });
+    }
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }

@@ -19,7 +19,7 @@ function collectTsFiles(dir: string): string[] {
   return results;
 }
 
-describe('Architecture, determinism & Contract v1.2 sync guardrails', () => {
+describe('Architecture, determinism & Contract v1.3 sync guardrails', () => {
   const coreFiles = collectTsFiles(coreDir);
 
   it('has modular pure core files including maps', () => {
@@ -42,10 +42,14 @@ describe('Architecture, determinism & Contract v1.2 sync guardrails', () => {
     }
   });
 
-  it('keeps game.contract.json verbatim in sync with Ticket-03 Contract v1.2 tuning', () => {
+  it('keeps game.contract.json verbatim in sync with Ticket-04 Contract v1.3 tuning & commands', () => {
     const raw = JSON.parse(readFileSync(resolve(rootDir, 'game.contract.json'), 'utf8'));
-    expect(raw.contract_version).toBe('1.2');
+    expect(raw.contract_version).toBe('1.3');
     expect(raw.team).toBe('2A202603454-LuuDangTuan');
+    expect(typeof raw.bench_cmd).toBe('string');
+    expect(raw.bench_cmd.length).toBeGreaterThan(0);
+    expect(typeof raw.soak_cmd).toBe('string');
+    expect(raw.soak_cmd.length).toBeGreaterThan(0);
     expect(raw.tuning).toEqual(DEFAULT_TUNING);
     expect(GAME_CONTRACT).toEqual(raw);
 

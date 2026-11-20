@@ -80,5 +80,17 @@
 - **P3-6 (Chế độ mù màu & hiển thị nhiên liệu):** Cài đặt "Bảng màu dễ phân biệt" lưu `localStorage` (`#00B3FF` cho Bóng Mực, `#FFFFFF` + `⚠` cho cảnh báo UI); đèn tắt xẹp 20% + vết rách giấy phân biệt không cần màu; đèn sáng có thanh dầu 3D & nhấp nháy `1 Hz` khi `< 30`.
 - **P3-7 (Contract v1.2 & Hồi quy Phase 1–2):** `game.contract.json` v1.2 khớp 100% mã nguồn; toàn bộ test hồi quy Phase 1–2 không bị thay thế đều đạt; ADR & Breaking Changes đầy đủ.
 
-## Phase 4 (Ticket-04)
-*(Chờ phát hành đề Phase 4)*
+## Phase 4 — Ticket-04 "Bình minh: phát hành v1.0.0" (Contract v1.3)
+
+### Acceptance Criteria (P4-1 .. P4-7)
+- **P4-1 (Chế độ Benchmark `bench_cmd`):** `node dist/bench.mjs --seed 42 --duration 30 --out bench.json` mở Chrome 1280×720 tắt vsync (`--disable-gpu-vsync --disable-frame-rate-limit`), cảnh Đêm 1 chuẩn (200 Bóng Mực `wander`, 100 đom đóm, L1–L3 sáng fuel 100, tắt spawn/sát thương/nhặt/hao dầu/thắng-thua/hiệu ứng sáng tạo, Mây ở `(0,0,0)`, camera quay vòng R=30m, Y=15m, CCW 15s/vòng, warmup 3s), đạt `avg_fps >= 60`, `p1_low_fps >= 30`, `load_ms <= 10000`, xuất `bench.json` chuẩn Contract v1.3.
+- **P4-2 (Soak Test `soak_cmd`):** `node --no-opt --expose-gc dist/soak.mjs --seed 7 --nights 10 --out soak.json` chạy 10 Đêm xoay vòng `1→2→3` cùng tiến trình với input ngẫu nhiên theo seed, `crashes = 0` và `mem_end_mb <= 1.2 * mem_start_mb`.
+- **P4-3 (Bảng xếp hạng cục bộ):** Nhập tên `3–12` ký tự sau màn hình Bình Minh hoặc khi thua bất kỳ Đêm nào; lưu tối đa Top 10 ra đĩa (`~/.dao-den-long/leaderboard.json`, hỗ trợ `DDL_DATA_DIR`), sắp theo `score` giảm dần + đạt trước đứng trên; xem từ Menu chính và xuất `{"entries": [...]}` qua `node dist/app.mjs --export-leaderboard out.json`.
+- **P4-4 (Dễ tiếp cận — Accessibility):** Đổi phím đủ 9 hành động + báo trùng phím + nút Khôi phục mặc định (lưu bền vững); phụ đề/chỉ báo hướng Bóng Mực mới xuất hiện + gió + 10s cuối + đèn `<30` dầu; tùy chọn Giảm chuyển động (tắt chớp/nhấp nháy); cỡ chữ UI tối thiểu `18px` ở 1280×720 + tùy chọn chữ lớn `×1.25`.
+- **P4-5 (Đóng gói & Clone sạch ≤ 3 lệnh):** Có `Dockerfile`, script `npm run package` tạo `dist/release/dao-den-long-v1.0.0.zip`; kiểm tra clone sạch sang thư mục mới chạy đủ web, headless, test và `bench.json`/`soak.json` đã commit.
+- **P4-6 (Giấy phép, Bản quyền & Bảo mật):** `LICENSE` (MIT), `CREDITS.md` đầy đủ, quét working tree và toàn bộ `git rev-list --all --objects` có `0` `.env`/key.
+- **P4-7 (Tài liệu tổng kết & Video demo):** Bảng truy vết 4 phase (`docs/proof/README.md`), `ai-log.md`, `retro.md`, `CHANGELOG.md` cả 4 phase, ảnh chụp 1280×720 trong `README.md`, và hướng dẫn/link video demo `.mp4` dưới 5 phút ở đầu `README.md`.
+
+### Giả định kỹ thuật Phase 4
+- **Tắt VSync trên WebGL trình duyệt:** `dist/bench.mjs` truyền `--disable-gpu-vsync --disable-frame-rate-limit` cho Chromium/Edge (`vsync_off: true`); một số trình duyệt/OS desktop compositor khi chạy thủ công có thể vẫn khóa `requestAnimationFrame` ở tần số quét màn hình (60/120 Hz) nếu không bật cờ trên.
+- **Kiến trúc `run_cmd` (`node dist/app.mjs`):** Chọn dùng Node.js HTTP server nhỏ + bản build tĩnh `dist/web/` để vừa giữ chạy 100% đa nền tảng (macOS/Linux/Windows không cần Electron), vừa có API lưu Bảng xếp hạng & Cài đặt ra file đĩa cục bộ và hỗ trợ trực tiếp `--export-leaderboard out.json`.

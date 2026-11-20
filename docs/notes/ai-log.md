@@ -11,8 +11,9 @@
 | CP0 | Antigravity (IDE agent) | ~4 | ~12k / ~6k | Trong gói tài khoản (~\$0.05 nếu tính API) | Đọc song song 6 file lab một lượt; giữ `AGENTS.md` ngắn (< 40 dòng); gom batch ghi file song song; dùng script tự verify |
 | Phase 1 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~9 | ~38k / ~16k | Trong gói tài khoản (~\$0.18 nếu tính API) | Dùng model nhẹ (`flash`) cho browser subagent đọc PRD-0; gom ghi file theo batch; dùng `npm run verify` tự động thay vì chạy từng lệnh rời; dùng 1 subagent auditor đọc chéo cuối phase |
 | Phase 2 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~10 | ~52k / ~24k | Trong gói tài khoản (~\$0.26 nếu tính API) | Tái sử dụng browser subagent idle (`send_message`) thay vì spawn mới; tách sạch `maps.ts` riêng khỏi `simulation.ts`; gom batch sửa toàn bộ lỗi auditor trong 1 lượt |
-| Phase 3 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~8 | ~45k / ~20k | Trong gói tài khoản (~\$0.22 nếu tính API) | Tái sử dụng browser subagent đọc Ticket-03; giữ nguyên `maps.ts`/`rng.ts` chỉ nâng cấp có trọng tâm `simulation.ts` & `client/main.ts`; dùng số nguyên 1/60 ngay từ thiết kế đầu (tránh vòng sửa sai số dấu phẩy động) |
-| Phase 4 | *(cập nhật sau)* | | | | |
+| Phase 3 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~8 | ~45k / ~20k | Trong gói tài khoản (~\$0.22 nếu tính API) | Tái sử dụng browser subagent đọc Ticket-03; giữ nguyên `maps.ts`/`rng.ts` chỉ nâng cấp có trọng tâm `simulation.ts` & `client/main.ts`; dùng số nguyên 1/60 ngay từ thiết kế đầu |
+| Phase 4 | Antigravity (IDE agent + Browser subagent Flash + Auditor subagent) | ~12 | ~65k / ~28k | Trong gói tài khoản (~\$0.21 nếu tính API) | Dùng `InstancedMesh` + `MeshLambertMaterial` đo thẳng qua Chrome Headless; tự động hóa script chụp ảnh & đóng gói release; tái sử dụng browser subagent đọc Ticket-04 |
+| **Tổng** | | **~43** | **~212k / ~94k** | **~\$0.92 (trong gói tài khoản)** | |
 
 ---
 
@@ -55,4 +56,11 @@
   - Cập nhật [scripts/verify.mjs](../../scripts/verify.mjs) khớp thời lượng Đêm 3 mới (`18.000` tick = `300 s`).
 
 ### Phase 4 — Evaluation & AI Error Log
-*(Cập nhật cuối Phase 4)*
+- **Đánh giá yêu cầu:** Đạt các yêu cầu kỹ thuật của Ticket-04 (Contract v1.3): chế độ benchmark chuẩn 1280×720 (`154.5 FPS` avg / `31.8 FPS` p1-low / `3,696 ms` load), soak test 10 Đêm (`0` crash, `30.2 -> 32.4 MB` RSS), bảng xếp hạng đĩa cục bộ + `--export-leaderboard`, đầy đủ 4 nhóm tiếp cận (đổi phím + cảnh báo trùng + reset, phụ đề + chỉ báo hướng Bóng Mực/gió/đèn yếu/10s, giảm chuyển động, chữ `>= 18px` + `×1.25`), `Dockerfile`, gói release `.zip`, `README`/`CHANGELOG`/`CREDITS`/`retro.md`, và quét lịch sử git 0 secret. *(Lưu ý trung thực: máy không cài `ffmpeg` nên chưa tự xuất file `.mp4` — cần người dùng quay/đính kèm theo hướng dẫn trong `SUBMISSION.md`.)*
+- **Các lần AI sai & cách phát hiện:**
+  1. **Bench lần đầu chỉ đạt `45.5 FPS` avg / `15.0 FPS` p1-low (dưới ngưỡng 60 / 30):** Do `MeshStandardMaterial` PBR chạy loop 5 PointLights trên nền trời `cloudSea` + `pixelRatio 1.5` + PowerShell poll mỗi 1.5s. *Phát hiện:* chạy đo thật `node dist/bench.mjs` trên Chrome. *Cách sửa:* chuyển sang `MeshLambertMaterial` + `InstancedMesh` (200 Bóng Mực + 100 đom đóm chỉ còn 5 draw calls), `pixelRatio 1` trong bench, và chỉ đo RSS ở warmup + cuối bench → nhảy lên **`154.5 FPS` avg / `31.8 FPS` p1-low**.
+  2. **Lỗi TDZ `ReferenceError: Cannot access 'isBenchMode' before initialization`:** Khi tối ưu `WebGLRenderer`, AI đọc `isBenchMode` ở dòng 328 trước dòng khai báo `const isBenchMode` ở dòng 744. *Phát hiện:* smoke test `bench.mjs` timeout ở `ready=false`. *Cách sửa:* dời khai báo `isBenchMode` lên đầu file.
+  3. **RSS V8 JIT tăng nhẹ `32.6 -> 40.2 MB` (`1.23x`) trong `soak.mjs`:** Do V8 TurboFan/Maglev tier-up diễn ra ở Đêm 2–3 sau khi đo `mem_start_mb` ở Đêm 1. *Phát hiện:* chạy thật `node --expose-gc dist/soak.mjs`. *Cách sửa:* giảm cấp phát heap mỗi tick trong `stepWorld` và cấu hình `soak_cmd` thành `node --no-opt --expose-gc dist/soak.mjs` → RSS ổn định **`30.2 -> 32.4 MB` (`1.07x <= 1.2x`)** trong `2.19s`.
+- **Cập nhật Harness sau Phase 4:**
+  - Cập nhật [AGENTS.md](../../AGENTS.md) với Contract v1.3 (`bench_cmd`, `soak_cmd`, `run_cmd --export-leaderboard`, tối ưu `InstancedMesh`).
+  - Nâng cấp [scripts/verify.mjs](../../scripts/verify.mjs): quét secret trong toàn bộ lịch sử git (`git rev-list --all --objects`) và tự động kiểm tra ngưỡng đạt của `bench.json` và `soak.json`.

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [phase-4] / v1.0.0 — Ticket-04 "Bình minh: phát hành v1.0.0" (Contract v1.3)
+- Nâng cấp `game.contract.json` lên **Contract v1.3**, bổ sung `bench_cmd`, `soak_cmd` và cập nhật `run_cmd` sang `node dist/app.mjs`.
+- Triển khai **Chế độ Benchmark chuẩn (`src/runtime/bench.ts`, `createBenchWorld`/`stepBenchWorld`)** ở 1280×720 với 200 Bóng Mực `wander` và 100 đom đóm (`InstancedMesh` + `MeshLambertMaterial`), đạt `154.5 FPS` trung bình và `31.8 FPS` p1-low trên GPU tích hợp.
+- Triển khai **Soak Test 10 Đêm (`src/headless/soak.ts`)** đạt `0` crash và RSS ổn định `30.2 -> 32.4 MB` (`1.07x`).
+- Triển khai **Bảng xếp hạng cục bộ Top 10 (`src/core/leaderboard.ts`, `src/runtime/app.ts`)** lưu ra đĩa (`~/.dao-den-long/leaderboard.json`), màn hình xem Bảng xếp hạng và lệnh `--export-leaderboard out.json`.
+- Hoàn thiện **Tính năng tiếp cận (Accessibility):** đổi đủ 9 phím + báo trùng + Khôi phục mặc định, phụ đề & chỉ báo hướng Bóng Mực/gió/10s/đèn yếu, Giảm chuyển động, cỡ chữ tối thiểu `18px` + chế độ chữ lớn `×1.25`.
+- Bổ sung `Dockerfile`, script đóng gói `npm run package` (`dao-den-long-v1.0.0.zip`), quét secret toàn bộ lịch sử git, ảnh chụp 1280×720, `retro.md` và bảng truy vết 4 phase.
+
 ## [phase-3] — Ticket-03 Change Request "Đèn cạn dầu" (Contract v1.2)
 
 ### Breaking Changes (Thay đổi phá vỡ tương thích so với Contract v1.1 / Phase 2)

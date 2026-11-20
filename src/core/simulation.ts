@@ -648,15 +648,14 @@ export function stepWorld(
   const pulseTriggered = input.pulse && !world.prevInput.pulse;
   const dashTriggered = input.dash && !world.prevInput.dash;
 
-  world.prevInput = {
-    move: [input.move[0], input.move[1]],
-    cam_yaw_deg: input.cam_yaw_deg,
-    jump: input.jump,
-    interact: input.interact,
-    pulse: input.pulse,
-    dash: input.dash,
-    pause: input.pause,
-  };
+  world.prevInput.move[0] = input.move[0];
+  world.prevInput.move[1] = input.move[1];
+  world.prevInput.cam_yaw_deg = input.cam_yaw_deg;
+  world.prevInput.jump = input.jump;
+  world.prevInput.interact = input.interact;
+  world.prevInput.pulse = input.pulse;
+  world.prevInput.dash = input.dash;
+  world.prevInput.pause = input.pause;
 
   if (pauseTriggered) {
     if (world.state === 'playing') {
@@ -735,22 +734,32 @@ export function stepWorld(
     }
   }
 
-  for (const drifter of world.drifters) {
-    if (drifter.state === 'flee' && drifter.fleeTicks > 0) {
-      drifter.fleeTicks -= 1;
-      if (drifter.fleeTicks === 0) {
-        drifter.state = 'removed';
+  if (world.drifters.length > 0) {
+    let anyRemoved = false;
+    for (const drifter of world.drifters) {
+      if (drifter.state === 'flee' && drifter.fleeTicks > 0) {
+        drifter.fleeTicks -= 1;
+        if (drifter.fleeTicks === 0) {
+          drifter.state = 'removed';
+          anyRemoved = true;
+        }
       }
     }
+    if (anyRemoved) {
+      world.drifters = world.drifters.filter((d) => d.state !== 'removed');
+    }
   }
-  world.drifters = world.drifters.filter((d) => d.state !== 'removed');
 
+  let anyMoteExpired = false;
   for (const mote of world.motes) {
     if (mote.kind === 'dropped' && mote.ttlTicks !== null) {
       mote.ttlTicks -= 1;
+      if (mote.ttlTicks <= 0) anyMoteExpired = true;
     }
   }
-  world.motes = world.motes.filter((m) => m.ttlTicks === null || m.ttlTicks > 0);
+  if (anyMoteExpired) {
+    world.motes = world.motes.filter((m) => m.ttlTicks === null || m.ttlTicks > 0);
+  }
 
   for (const charm of world.charms) {
     if (!charm.available && charm.respawnTicks > 0) {
@@ -762,43 +771,54 @@ export function stepWorld(
   }
 
   // Ticket-03 Step 2: Subtract lantern fuel (natural decay 1/60 + 5/60 per draining shade)
-  const drainingShades = [...world.shades]
-    .filter((s) => s.state === 'drain' && s.readySimTick <= simTick && s.targetLanternId !== null)
-    .sort((a, b) => compareId(a.id, b.id));
-
-  for (const lantern of world.lanterns) {
-    if (!lantern.lit) continue;
-    lantern.fuelSixtieths -= decayUnitsPerTick;
+  for (let i = 0; i < world.lanterns.length; i += 1) {
+    const lantern = world.lanterns[i]!;
+    if (lantern.lit) {
+      lantern.fuelSixtieths -= decayUnitsPerTick;
+    }
   }
 
-  for (const shade of drainingShades) {
-    const target = world.lanterns.find((l) => l.id === shade.targetLanternId);
-    if (
-      target &&
-      target.lit &&
-      target.fuelSixtieths < lowFuelUnits &&
-      distXZ(shade.pos, target.pos) <= SHADE_DRAIN_RADIUS + 1e-9
-    ) {
-      target.fuelSixtieths -= drainUnitsPerTick;
-      shade.drainTicks += 1;
-      if (shade.drainTicks % SHADE_DRAIN_EVENT_INTERVAL_TICKS === 0) {
-        events.push({
-          type: 'event',
-          tick: nextTick,
-          name: 'fuel_drain',
-          data: {
-            lantern_id: target.id,
-            shade_id: shade.id,
-            fuel: round1(Math.max(0, target.fuelSixtieths) / FUEL_UNITS_PER_POINT),
-          },
-        });
+  let hasDrainingShade = false;
+  for (let i = 0; i < world.shades.length; i += 1) {
+    const s = world.shades[i]!;
+    if (s.state === 'drain' && s.readySimTick <= simTick && s.targetLanternId !== null) {
+      hasDrainingShade = true;
+      break;
+    }
+  }
+  if (hasDrainingShade) {
+    const drainingShades = world.shades
+      .filter((s) => s.state === 'drain' && s.readySimTick <= simTick && s.targetLanternId !== null)
+      .sort((a, b) => compareId(a.id, b.id));
+    for (const shade of drainingShades) {
+      const target = world.lanterns.find((l) => l.id === shade.targetLanternId);
+      if (
+        target &&
+        target.lit &&
+        target.fuelSixtieths < lowFuelUnits &&
+        distXZ(shade.pos, target.pos) <= SHADE_DRAIN_RADIUS + 1e-9
+      ) {
+        target.fuelSixtieths -= drainUnitsPerTick;
+        shade.drainTicks += 1;
+        if (shade.drainTicks % SHADE_DRAIN_EVENT_INTERVAL_TICKS === 0) {
+          events.push({
+            type: 'event',
+            tick: nextTick,
+            name: 'fuel_drain',
+            data: {
+              lantern_id: target.id,
+              shade_id: shade.id,
+              fuel: round1(Math.max(0, target.fuelSixtieths) / FUEL_UNITS_PER_POINT),
+            },
+          });
+        }
       }
     }
   }
 
-  // Immediately after Step 2: extinguish any lantern with fuel <= 0
-  const sortedLanternsById = [...world.lanterns].sort((a, b) => compareId(a.id, b.id));
-  for (const lantern of sortedLanternsById) {
+  // Immediately after Step 2: extinguish any lantern with fuel <= 0 (world.lanterns is L1..LN)
+  for (let i = 0; i < world.lanterns.length; i += 1) {
+    const lantern = world.lanterns[i]!;
     if (lantern.lit && lantern.fuelSixtieths <= 0) {
       lantern.lit = false;
       lantern.fuelSixtieths = 0;
@@ -1002,29 +1022,33 @@ export function stepWorld(
   // --- STEP 4: Pick up motes & charms ---
   if (canAct) {
     if (world.player.carried < playerCapacity && world.motes.length > 0) {
-      const candidates = world.motes
-        .filter((m) => m.readySimTick <= simTick)
-        .map((mote) => ({
-          mote,
-          dist: distXZ(world.player.pos, mote.pos),
-          dy: Math.abs(world.player.pos[1] - mote.pos[1]),
-        }))
-        .filter((c) => c.dist <= tuning.pickup_radius + 1e-9 && c.dy <= PICKUP_MAX_DY + 1e-9)
-        .sort((a, b) => (a.dist !== b.dist ? a.dist - b.dist : compareId(a.mote.id, b.mote.id)));
-
-      const pickedIds = new Set<string>();
-      for (const c of candidates) {
-        if (world.player.carried >= playerCapacity) break;
-        pickedIds.add(c.mote.id);
-        world.player.carried += 1;
-        events.push({
-          type: 'event',
-          tick: nextTick,
-          name: 'mote_picked',
-          data: { carried: world.player.carried },
-        });
+      let candidates: Array<{ mote: (typeof world.motes)[number]; dist: number }> | null = null;
+      for (let i = 0; i < world.motes.length; i += 1) {
+        const mote = world.motes[i]!;
+        if (mote.readySimTick > simTick) continue;
+        const d = distXZ(world.player.pos, mote.pos);
+        if (d <= tuning.pickup_radius + 1e-9 && Math.abs(world.player.pos[1] - mote.pos[1]) <= PICKUP_MAX_DY + 1e-9) {
+          if (!candidates) candidates = [];
+          candidates.push({ mote, dist: d });
+        }
       }
-      if (pickedIds.size > 0) {
+
+      if (candidates) {
+        if (candidates.length > 1) {
+          candidates.sort((a, b) => (a.dist !== b.dist ? a.dist - b.dist : compareId(a.mote.id, b.mote.id)));
+        }
+        const pickedIds = new Set<string>();
+        for (const c of candidates) {
+          if (world.player.carried >= playerCapacity) break;
+          pickedIds.add(c.mote.id);
+          world.player.carried += 1;
+          events.push({
+            type: 'event',
+            tick: nextTick,
+            name: 'mote_picked',
+            data: { carried: world.player.carried },
+          });
+        }
         world.motes = world.motes.filter((m) => !pickedIds.has(m.id));
       }
     }
@@ -1483,31 +1507,39 @@ export function stepWorld(
 
   // --- STEP 9: Collisions — Drifters steal FIRST, then Shades hit (ascending id) ---
   if (canAct) {
-    const sortedDrifters = [...world.drifters].sort((a, b) => compareId(a.id, b.id));
-    for (const drifter of sortedDrifters) {
-      if (drifter.readySimTick > simTick || drifter.state !== 'chase') continue;
-      if (distXZ(world.player.pos, drifter.pos) <= DRIFTER_STEAL_RADIUS + 1e-9) {
-        const amount = Math.min(DRIFTER_STEAL_MAX, world.player.carried);
-        if (amount <= 0) continue;
-        world.player.carried -= amount;
-        drifter.stolen = amount;
-        drifter.state = 'flee';
-        drifter.fleeTicks = DRIFTER_FLEE_TICKS;
-        events.push({
-          type: 'event',
-          tick: nextTick,
-          name: 'drifter_steal',
-          data: {
-            drifter_id: drifter.id,
-            amount,
-            carried: world.player.carried,
-          },
-        });
+    if (world.drifters.length > 0) {
+      const sortedDrifters =
+        world.drifters.length > 1
+          ? [...world.drifters].sort((a, b) => compareId(a.id, b.id))
+          : world.drifters;
+      for (const drifter of sortedDrifters) {
+        if (drifter.readySimTick > simTick || drifter.state !== 'chase') continue;
+        if (distXZ(world.player.pos, drifter.pos) <= DRIFTER_STEAL_RADIUS + 1e-9) {
+          const amount = Math.min(DRIFTER_STEAL_MAX, world.player.carried);
+          if (amount <= 0) continue;
+          world.player.carried -= amount;
+          drifter.stolen = amount;
+          drifter.state = 'flee';
+          drifter.fleeTicks = DRIFTER_FLEE_TICKS;
+          events.push({
+            type: 'event',
+            tick: nextTick,
+            name: 'drifter_steal',
+            data: {
+              drifter_id: drifter.id,
+              amount,
+              carried: world.player.carried,
+            },
+          });
+        }
       }
     }
 
-    if (world.player.invulnTicks === 0) {
-      const sortedShades = [...world.shades].sort((a, b) => compareId(a.id, b.id));
+    if (world.player.invulnTicks === 0 && world.shades.length > 0) {
+      const sortedShades =
+        world.shades.length > 1
+          ? [...world.shades].sort((a, b) => compareId(a.id, b.id))
+          : world.shades;
       for (const shade of sortedShades) {
         if (
           shade.readySimTick > simTick ||
@@ -1784,4 +1816,111 @@ export function runHeadlessSimulation(options: HeadlessRunOptions): {
   records.push(endRecord);
 
   return { world, records };
+}
+
+/**
+ * Ticket-04 Section 1 standardized Benchmark Scene:
+ * - Night 1, 200 Shades in `wander` evenly distributed on island (seed 42), 100 motes,
+ *   L1-L3 lit with fuel 100, Mây stationary at (0,0,0).
+ * - Disables spawning, damage, pickup, fuel decay, and night-end conditions;
+ *   Shades move according to standard `wander` rules.
+ */
+export function createBenchWorld(seed: number = 42, tuning: TuningConfig = DEFAULT_TUNING): WorldState {
+  const world = createWorld(
+    seed,
+    1,
+    {
+      player: { pos: [0, 0, 0], carried: 0, flames: 3 },
+      random_motes: false,
+      random_shades: false,
+      random_drifters: false,
+      wind_enabled: false,
+      lanterns: [
+        { id: 'L1', lit: true, fuel: 100 },
+        { id: 'L2', lit: true, fuel: 100 },
+        { id: 'L3', lit: true, fuel: 100 },
+        { id: 'L4', lit: false, deposited: 0 },
+        { id: 'L5', lit: false, deposited: 0 },
+      ],
+      motes: [],
+      shades: [],
+    },
+    tuning,
+  );
+
+  // Evenly distribute 100 motes across valid Night 1 radius (excluding safe zones or anywhere on R=38)
+  for (let i = 0; i < 100; i += 1) {
+    const angleRes = randomRange(world.rngState, 0, Math.PI * 2);
+    world.rngState = angleRes.nextState;
+    const rNormRes = nextRandom(world.rngState);
+    world.rngState = rNormRes.nextState;
+    const rad = 3 + Math.sqrt(rNormRes.value) * 35;
+    world.motes.push({
+      id: `M${i + 1}`,
+      pos: [round3(Math.cos(angleRes.value) * rad), 0, round3(Math.sin(angleRes.value) * rad)],
+      kind: 'random',
+      ttlTicks: null,
+      readySimTick: 0,
+    });
+  }
+
+  // Evenly distribute 200 Shades in `wander` across Night 1 (outside L1-L3 safe_radius=6m)
+  for (let i = 0; i < 200; i += 1) {
+    let sx = 0;
+    let sz = 0;
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const aRes = randomRange(world.rngState, 0, Math.PI * 2);
+      world.rngState = aRes.nextState;
+      const rNormRes = nextRandom(world.rngState);
+      world.rngState = rNormRes.nextState;
+      const rad = 3 + Math.sqrt(rNormRes.value) * 35.5;
+      const cx = Math.cos(aRes.value) * rad;
+      const cz = Math.sin(aRes.value) * rad;
+      if (!world.lanterns.some((l) => l.lit && Math.hypot(cx - l.pos[0], cz - l.pos[2]) <= tuning.safe_radius + 0.3)) {
+        sx = cx;
+        sz = cz;
+        break;
+      }
+    }
+    const wAngRes = randomRange(world.rngState, 0, Math.PI * 2);
+    world.rngState = wAngRes.nextState;
+    world.shades.push({
+      id: `S${i + 1}`,
+      pos: [round3(sx), 1.0, round3(sz)],
+      state: 'wander',
+      stateTicksLeft: 0,
+      pushTicksLeft: 0,
+      pushDir: [1, 0],
+      recoilDir: [1, 0],
+      safePushTicks: 0,
+      wanderAngle: wAngRes.value,
+      targetLanternId: null,
+      drainTicks: 0,
+      readySimTick: 0,
+    });
+  }
+
+  return world;
+}
+
+export function stepBenchWorld(world: WorldState, tuning: TuningConfig = DEFAULT_TUNING): void {
+  world.tick += 1;
+  world.simTick += 1;
+  const step = SHADE_WANDER_SPEED * FIXED_DT;
+  for (const shade of world.shades) {
+    const moved = tryMoveShadeHorizontal(
+      world.night,
+      shade,
+      Math.cos(shade.wanderAngle) * step,
+      Math.sin(shade.wanderAngle) * step,
+      world.lanterns,
+      tuning,
+      true,
+    );
+    if (!moved) {
+      shade.wanderAngle += Math.PI * 0.75;
+    } else {
+      shade.wanderAngle += 0.015;
+    }
+  }
 }

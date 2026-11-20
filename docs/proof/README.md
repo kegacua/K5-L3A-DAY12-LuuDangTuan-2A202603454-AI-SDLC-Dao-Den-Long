@@ -56,5 +56,14 @@
 | P3-6 | Chế độ mù màu ("Bảng màu dễ phân biệt": `#00B3FF`, `#FFFFFF` + `⚠`), đèn tắt xẹp 20% + vết rách, thanh dầu & nhấp nháy 1 Hz | `npm run build:web` sạch 0 lỗi + kiểm tra `src/client/main.ts` & `index.html` | [phase-3-verify.log](phase-3-verify.log) | Đạt |
 | P3-7 | ADR-001, Breaking Changes Changelog, cập nhật/xóa test cũ có lý do & hồi quy Phase 1–2 + Determinism 3 Đêm + Benchmark | `npm run verify -- --phase phase-3` (21/21 test) + Auditor Verdict **PASS** | [adr-001](../notes/adr-001-lantern-fuel-and-dawn-win.md), [CHANGELOG.md](../../CHANGELOG.md), [phase-3-verify.log](phase-3-verify.log) | Đạt |
 
-## Phase 4 (Ticket-04)
-*(Cập nhật khi triển khai Phase 4)*
+## Phase 4 — Ticket-04 "Bình minh: phát hành v1.0.0" · Contract v1.3 (`tag: phase-4`, `v1.0.0`)
+
+| Mã YC | Yêu cầu | Cách kiểm chứng | Bằng chứng | Kết quả |
+|---|---|---|---|---|
+| P4-1 | Chế độ Benchmark 1280×720 (`bench.json`, `avg_fps >= 60`, `p1_low_fps >= 30`, `load_ms <= 10000`) | `node dist/bench.mjs --seed 42 --duration 30 --out bench.json` | [bench.json](../../bench.json) (`154.5 FPS` avg, `31.8` p1-low, `3,696ms` load) & [phase-4-verify.log](phase-4-verify.log) | Đạt |
+| P4-2 | Soak Test 10 Đêm liên tiếp (`crashes = 0`, `mem_end_mb <= 1.2 * mem_start_mb`) | `node --no-opt --expose-gc dist/soak.mjs --seed 7 --nights 10 --out soak.json` | [soak.json](../../soak.json) (`0` crash, `30.2 -> 32.4 MB`, `2.19s`) & [phase-4-verify.log](phase-4-verify.log) | Đạt |
+| P4-3 | Bảng xếp hạng cục bộ (nhập tên 3–12 ký tự, top 10, lưu đĩa, `--export-leaderboard`) | `tests/phase4.release.test.ts` (validation, tie-break, CLI export) + UI Menu & Result | [phase-4-verify.log](phase-4-verify.log) | Đạt |
+| P4-4 | Tiếp cận: đổi phím + báo trùng + reset, phụ đề + chỉ báo hướng, giảm chuyển động, cỡ chữ `>= 18px` + `×1.25` | `npm run build:web` + kiểm tra trực tiếp `index.html`, `src/client/main.ts` & ảnh chụp 1280×720 | [screenshots/01-menu-1280x720.png](screenshots/01-menu-1280x720.png), [screenshots/02-bench-scene-1280x720.png](screenshots/02-bench-scene-1280x720.png) | Đạt |
+| P4-5 | Đóng gói `v1.0.0` (`.zip` + `Dockerfile`) & kiểm tra cài đặt sạch ≤ 3 lệnh | `npm run package` + kiểm tra thư mục nguồn sạch (`npm ci --offline && npm run build && npm test`) + giải nén `.zip` chạy `headless.mjs` & `app.mjs` | [phase-4-verify.log](phase-4-verify.log) | Đạt |
+| P4-6 | Giấy phép (`LICENSE`), `CREDITS.md` & quét không có `.env`/key trong working tree lẫn lịch sử git | `git rev-list --all --objects` scan trong `scripts/verify.mjs` | [LICENSE](../../LICENSE), [CREDITS.md](../../CREDITS.md), [phase-4-verify.log](phase-4-verify.log) | Đạt |
+| P4-7 | Tài liệu tổng kết (`retro.md`, `ai-log.md`, `CHANGELOG.md`, `README.md`) & Video demo `.mp4` | Hoàn tất tài liệu & ảnh chụp; **Video `.mp4`:** máy chưa cài `ffmpeg` nên người dùng quay/đính kèm vào Release `v1.0.0` trước khi chốt nộp | [retro.md](../notes/retro.md), [ai-log.md](../notes/ai-log.md) (Video: chờ người dùng quay `.mp4`) | Đạt (trừ video người dùng tự quay) |

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Đảo Đèn Lồng — Ba Hòn Đảo</title>
+    <title>Đảo Đèn Lồng — Bình Minh v1.0.0</title>
     <style>
       :root {
         --sky: #0E1430;
@@ -14,89 +14,104 @@
         --scarf: #C8102E;
         --lantern: #FFB347;
         --mote: #FFF6C2;
+        --ui-scale: 1;
       }
       body.colorblind {
         --danger: #FFFFFF;
+      }
+      body.large-text {
+        --ui-scale: 1.25;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #app {
         width: 100%; height: 100%; overflow: hidden;
         background: var(--sky); color: var(--text);
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: calc(18px * var(--ui-scale));
         user-select: none;
       }
 
-      /* HUD layout per Ticket-02 */
+      /* HUD layout — minimum 18px font size at 1280x720 */
       #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
       #hud.hidden { display: none; }
 
       .panel {
-        background: rgba(14, 20, 48, 0.78);
-        border: 1px solid rgba(242, 193, 78, 0.38);
+        background: rgba(14, 20, 48, 0.8);
+        border: 1px solid rgba(242, 193, 78, 0.42);
         border-radius: 12px;
         backdrop-filter: blur(8px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       }
 
-      /* Top-left: Flames + Night badge */
       #hud-tl {
-        position: fixed; top: 16px; left: 16px;
-        padding: 10px 14px; min-width: 190px;
+        position: fixed; top: 14px; left: 14px;
+        padding: 10px 14px; min-width: 220px;
       }
-      #night-label { font-size: 13px; color: var(--gold); font-weight: 700; margin-bottom: 4px; }
-      #flames-val { font-size: 20px; letter-spacing: 3px; color: var(--lantern); }
+      #night-label { font-size: calc(18px * var(--ui-scale)); color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+      #flames-val { font-size: calc(22px * var(--ui-scale)); letter-spacing: 3px; color: var(--lantern); }
       #charm-badge {
-        display: none; margin-top: 6px; padding: 3px 8px; border-radius: 999px;
-        background: rgba(200, 16, 46, 0.82); border: 1px solid var(--gold);
-        font-size: 12px; font-weight: 700; color: var(--text);
+        display: none; margin-top: 6px; padding: 3px 10px; border-radius: 999px;
+        background: rgba(200, 16, 46, 0.85); border: 1px solid var(--gold);
+        font-size: calc(18px * var(--ui-scale)); font-weight: 700; color: var(--text);
       }
       #charm-badge.active { display: inline-block; }
 
-      /* Top-center: Clock mm:ss (turns red & blinks <= 30s) + Wind warning */
       #hud-tc {
-        position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+        position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
         padding: 8px 20px; text-align: center;
       }
       #timer-val {
-        font-size: 28px; font-weight: 800; color: var(--text);
+        font-size: calc(28px * var(--ui-scale)); font-weight: 800; color: var(--text);
         font-variant-numeric: tabular-nums;
       }
       #timer-val.danger {
         color: var(--danger);
         animation: blinkDanger 0.7s infinite;
       }
+      body.reduce-motion #timer-val.danger {
+        animation: none;
+      }
       @keyframes blinkDanger {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.35; }
+        50% { opacity: 0.4; }
       }
       #wind-banner {
-        display: none; margin-top: 4px; font-size: 12px; font-weight: 700;
+        display: none; margin-top: 4px; font-size: calc(18px * var(--ui-scale)); font-weight: 700;
         color: #8FA3B8;
       }
       #wind-banner.visible { display: block; }
       #wind-banner.active { color: var(--gold); }
 
-      /* Top-right: Lanterns k/n + Score */
       #hud-tr {
-        position: fixed; top: 16px; right: 16px;
-        padding: 10px 16px; text-align: right; min-width: 175px;
+        position: fixed; top: 14px; right: 14px;
+        padding: 10px 16px; text-align: right; min-width: 220px;
       }
-      #lanterns-val { font-size: 18px; font-weight: 800; color: var(--lantern); }
-      #score-val { font-size: 15px; font-weight: 700; color: var(--gold); margin-top: 2px; }
-      #fps-val { font-size: 11px; color: rgba(245, 241, 230, 0.55); margin-top: 2px; }
+      #lanterns-val { font-size: calc(19px * var(--ui-scale)); font-weight: 800; color: var(--lantern); }
+      #score-val { font-size: calc(18px * var(--ui-scale)); font-weight: 700; color: var(--gold); margin-top: 2px; }
+      #fps-val { font-size: calc(18px * var(--ui-scale)); color: rgba(245, 241, 230, 0.75); margin-top: 2px; }
 
-      /* Bottom-center: 10-slot Firefly bar */
-      #hud-bc {
-        position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%);
-        padding: 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      /* Visual subtitle / accessibility alert banner */
+      #subtitle-banner {
+        position: fixed; top: 108px; left: 50%; transform: translateX(-50%);
+        padding: 8px 18px; border-radius: 10px;
+        background: rgba(18, 10, 26, 0.88);
+        border: 1.5px solid var(--danger);
+        color: var(--danger);
+        font-size: calc(18px * var(--ui-scale)); font-weight: 700;
+        display: none; white-space: nowrap;
       }
-      #mote-bar-label { font-size: 12px; color: var(--text); opacity: 0.9; }
-      #mote-slots { display: flex; gap: 6px; }
+      #subtitle-banner.visible { display: block; }
+
+      #hud-bc {
+        position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
+        padding: 8px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      }
+      #mote-bar-label { font-size: calc(18px * var(--ui-scale)); color: var(--text); font-weight: 700; }
+      #mote-slots { display: flex; gap: 5px; flex-wrap: wrap; max-width: 480px; justify-content: center; }
       .mote-slot {
-        width: 22px; height: 22px; border-radius: 50%;
+        width: 20px; height: 20px; border-radius: 50%;
         border: 1.5px solid rgba(255, 229, 138, 0.45);
         background: rgba(14, 20, 48, 0.65);
-        transition: all 0.14s ease;
       }
       .mote-slot.filled {
         background: radial-gradient(circle, var(--mote) 35%, #FFE58A 75%, var(--lantern) 100%);
@@ -104,112 +119,152 @@
         box-shadow: 0 0 10px rgba(255, 229, 138, 0.85);
       }
 
-      /* Bottom-right: Dash & Pulse Cooldown Icons */
       #hud-br {
-        position: fixed; bottom: 44px; right: 16px;
+        position: fixed; bottom: 52px; right: 14px;
         display: flex; gap: 10px;
       }
       .ability-box {
-        width: 84px; padding: 8px 6px; text-align: center;
+        min-width: 112px; padding: 8px 10px; text-align: center;
       }
-      .ability-key { font-size: 11px; color: var(--gold); font-weight: 700; }
-      .ability-name { font-size: 12px; font-weight: 700; margin: 2px 0; }
-      .ability-status { font-size: 12px; color: #FFE9B0; font-variant-numeric: tabular-nums; }
-      .ability-box.cd { opacity: 0.62; border-color: rgba(255, 255, 255, 0.2); }
+      .ability-key { font-size: calc(18px * var(--ui-scale)); color: var(--gold); font-weight: 700; }
+      .ability-name { font-size: calc(18px * var(--ui-scale)); font-weight: 700; margin: 2px 0; }
+      .ability-status { font-size: calc(18px * var(--ui-scale)); color: #FFE9B0; font-variant-numeric: tabular-nums; }
+      .ability-box.cd { opacity: 0.68; border-color: rgba(255, 255, 255, 0.25); }
       .ability-box.ready { border-color: var(--gold); }
 
-      /* Contextual E prompt */
       #action-hint {
-        position: fixed; bottom: 118px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: 148px; left: 50%; transform: translateX(-50%);
         padding: 9px 18px; border-radius: 999px;
-        background: rgba(255, 179, 71, 0.24);
-        border: 1px solid var(--gold);
-        color: var(--text); font-size: 14px; font-weight: 700;
-        opacity: 0; transition: opacity 0.15s ease;
+        background: rgba(255, 179, 71, 0.28);
+        border: 1.5px solid var(--gold);
+        color: var(--text); font-size: calc(18px * var(--ui-scale)); font-weight: 700;
+        opacity: 0; transition: opacity 0.12s ease;
         white-space: nowrap;
       }
       #action-hint.visible { opacity: 1; }
 
-      /* Off-screen arrow pointing to nearest unlit lantern */
-      #lantern-arrow {
+      .edge-arrow {
         position: fixed; display: none;
-        width: 40px; height: 40px; margin-left: -20px; margin-top: -20px;
+        width: 44px; height: 44px; margin-left: -22px; margin-top: -22px;
         align-items: center; justify-content: center;
         border-radius: 50%;
-        background: rgba(14, 20, 48, 0.85);
-        border: 2px solid var(--gold);
-        color: var(--lantern); font-size: 20px; font-weight: 900;
+        background: rgba(14, 20, 48, 0.9);
+        font-size: 22px; font-weight: 900;
+      }
+      .edge-arrow.visible { display: flex; }
+      #lantern-arrow {
+        border: 2px solid var(--gold); color: var(--lantern);
         box-shadow: 0 0 14px rgba(255, 179, 71, 0.6);
       }
-      #lantern-arrow.visible { display: flex; }
+      #shade-arrow {
+        border: 2px solid var(--danger); color: var(--danger);
+        box-shadow: 0 0 14px rgba(255, 90, 95, 0.7);
+      }
 
       #controls-bar {
-        position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
         padding: 5px 14px; border-radius: 999px;
-        background: rgba(14, 20, 48, 0.72);
-        border: 1px solid rgba(245, 241, 230, 0.15);
-        font-size: 11.5px; color: rgba(245, 241, 230, 0.85); white-space: nowrap;
+        background: rgba(14, 20, 48, 0.78);
+        border: 1px solid rgba(245, 241, 230, 0.18);
+        font-size: calc(18px * var(--ui-scale)); color: rgba(245, 241, 230, 0.9); white-space: nowrap;
       }
       kbd {
-        padding: 1px 5px; border-radius: 4px;
-        background: rgba(242, 193, 78, 0.18); border: 1px solid rgba(242, 193, 78, 0.45);
+        padding: 1px 6px; border-radius: 4px;
+        background: rgba(242, 193, 78, 0.2); border: 1px solid rgba(242, 193, 78, 0.45);
         color: var(--gold); font-weight: 700; margin: 0 1px;
       }
 
-      /* Modals: Menu, Intro, Pause, Settings, Result, Dawn */
+      /* Modals */
       .modal-backdrop {
         position: fixed; inset: 0; display: none;
         align-items: center; justify-content: center;
-        background: rgba(14, 20, 48, 0.82); backdrop-filter: blur(8px);
-        z-index: 30;
+        background: rgba(14, 20, 48, 0.85); backdrop-filter: blur(8px);
+        z-index: 30; padding: 16px;
       }
       .modal-backdrop.visible { display: flex; }
       .modal-card {
-        width: min(460px, 92vw); padding: 28px;
-        border-radius: 18px;
-        background: linear-gradient(160deg, rgba(27, 35, 80, 0.96), rgba(14, 20, 48, 0.98));
+        width: min(640px, 95vw); max-height: 92vh; overflow-y: auto;
+        padding: 24px 26px; border-radius: 18px;
+        background: linear-gradient(160deg, rgba(27, 35, 80, 0.97), rgba(14, 20, 48, 0.99));
         border: 1.5px solid rgba(242, 193, 78, 0.55);
         text-align: center; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
       }
       .modal-card h1, .modal-card h2 { color: var(--gold); margin-bottom: 10px; }
-      .modal-card h1 { font-size: 30px; }
-      .modal-card h2 { font-size: 24px; }
+      .modal-card h1 { font-size: calc(30px * var(--ui-scale)); }
+      .modal-card h2 { font-size: calc(24px * var(--ui-scale)); }
       .modal-card.lost h2 { color: var(--danger); }
-      .modal-card p { color: var(--text); font-size: 14px; line-height: 1.55; margin-bottom: 16px; }
+      .modal-card p { color: var(--text); font-size: calc(18px * var(--ui-scale)); line-height: 1.5; margin-bottom: 14px; }
       .quote-box {
-        background: rgba(255, 179, 71, 0.1); border-left: 3px solid var(--gold);
+        background: rgba(255, 179, 71, 0.12); border-left: 3px solid var(--gold);
         padding: 12px 14px; text-align: left; font-style: italic;
-        border-radius: 8px; margin-bottom: 18px; font-size: 14px; line-height: 1.55;
+        border-radius: 8px; margin-bottom: 16px; font-size: calc(18px * var(--ui-scale)); line-height: 1.5;
       }
       .stats-box {
         background: rgba(255, 255, 255, 0.06); border-radius: 12px;
-        padding: 12px 16px; margin-bottom: 18px; text-align: left;
+        padding: 12px 16px; margin-bottom: 16px; text-align: left;
       }
       .stat-row {
-        display: flex; justify-content: space-between; font-size: 14px; margin: 5px 0;
+        display: flex; justify-content: space-between; font-size: calc(18px * var(--ui-scale)); margin: 5px 0;
       }
       .btn-stack { display: flex; flex-direction: column; gap: 10px; }
-      .btn-row { display: flex; gap: 8px; justify-content: center; }
+      .btn-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
       button.btn {
-        padding: 11px 16px; border-radius: 10px; border: 1px solid rgba(242, 193, 78, 0.45);
+        padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(242, 193, 78, 0.45);
         background: rgba(242, 193, 78, 0.14); color: var(--text);
-        font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.12s ease;
+        font-size: calc(18px * var(--ui-scale)); font-weight: 700; cursor: pointer;
       }
-      button.btn:hover { background: rgba(242, 193, 78, 0.28); transform: translateY(-1px); }
+      button.btn:hover { background: rgba(242, 193, 78, 0.28); }
       button.btn.primary {
         background: linear-gradient(135deg, #FFB347, #F2C14E);
         color: #14101A; border: none;
       }
       button.btn.primary:hover { filter: brightness(1.08); }
+
       .setting-row {
-        display: flex; flex-direction: column; text-align: left; gap: 6px; margin-bottom: 14px;
+        display: flex; flex-direction: column; text-align: left; gap: 6px; margin-bottom: 12px;
       }
       .setting-row.checkbox-row {
         flex-direction: row; align-items: center; gap: 10px;
       }
-      .setting-row label { font-size: 13px; color: var(--gold); font-weight: 600; }
+      .setting-row label { font-size: calc(18px * var(--ui-scale)); color: var(--gold); font-weight: 600; }
       input[type="range"] { width: 100%; accent-color: var(--gold); }
-      input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+      input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); cursor: pointer; }
+
+      .keybind-grid {
+        display: grid; grid-template-columns: 1fr auto; gap: 8px 12px;
+        align-items: center; text-align: left; margin: 10px 0 14px;
+        padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.05);
+      }
+      .keybind-btn {
+        min-width: 130px; padding: 6px 10px; border-radius: 8px;
+        border: 1px solid var(--gold); background: rgba(14, 20, 48, 0.85);
+        color: var(--text); font-size: calc(18px * var(--ui-scale)); font-weight: 700; cursor: pointer;
+      }
+      .keybind-btn.listening { border-color: #00B3FF; color: #00B3FF; }
+      .keybind-btn.conflict { border-color: var(--danger); color: var(--danger); }
+      #keybind-warning {
+        color: var(--danger); font-size: calc(18px * var(--ui-scale)); font-weight: 700;
+        min-height: 24px; margin-bottom: 8px;
+      }
+
+      /* Leaderboard table & form */
+      .lb-form {
+        display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center;
+      }
+      .lb-input {
+        flex: 1; min-width: 200px; padding: 10px 12px; border-radius: 10px;
+        border: 1.5px solid var(--gold); background: rgba(14, 20, 48, 0.9);
+        color: var(--text); font-size: calc(18px * var(--ui-scale));
+      }
+      #lb-save-msg { font-size: calc(18px * var(--ui-scale)); color: var(--gold); margin-bottom: 10px; min-height: 22px; }
+      table.lb-table {
+        width: 100%; border-collapse: collapse; margin-bottom: 16px;
+        font-size: calc(18px * var(--ui-scale)); text-align: left;
+      }
+      .lb-table th, .lb-table td {
+        padding: 8px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .lb-table th { color: var(--gold); }
     </style>
   </head>
   <body>
@@ -234,6 +289,8 @@
         <div id="fps-val">60 FPS</div>
       </div>
 
+      <div id="subtitle-banner"></div>
+
       <div id="hud-bc" class="panel">
         <div id="mote-bar-label">Đom đóm: 0 / 10</div>
         <div id="mote-slots"></div>
@@ -241,22 +298,23 @@
 
       <div id="hud-br">
         <div id="dash-box" class="panel ability-box ready">
-          <div class="ability-key">[Shift]</div>
+          <div id="dash-key-label" class="ability-key">[Shift]</div>
           <div class="ability-name">Lướt</div>
           <div id="dash-status" class="ability-status">Sẵn sàng</div>
         </div>
         <div id="pulse-box" class="panel ability-box cd">
-          <div class="ability-key">[F / Q]</div>
+          <div id="pulse-key-label" class="ability-key">[F]</div>
           <div class="ability-name">Tỏa Sáng</div>
           <div id="pulse-status" class="ability-status">Cần 3</div>
         </div>
       </div>
 
       <div id="action-hint"></div>
-      <div id="lantern-arrow">▲</div>
+      <div id="lantern-arrow" class="edge-arrow">▲</div>
+      <div id="shade-arrow" class="edge-arrow">👁</div>
 
       <div id="controls-bar">
-        <kbd>WASD</kbd> Chạy · <kbd>Space</kbd> Nhảy · <kbd>Shift</kbd> Lướt · <kbd>E</kbd> Nạp đèn · <kbd>F</kbd> Tỏa Sáng · <kbd>Esc</kbd>/<kbd>P</kbd> Tạm dừng · Kéo chuột / <kbd>J</kbd><kbd>L</kbd> Camera
+        <span id="controls-summary">WASD Chạy · Space Nhảy · Shift Lướt · E Nạp đèn · F Tỏa Sáng · Esc Tạm dừng</span>
       </div>
     </div>
 
@@ -264,7 +322,7 @@
     <div id="menu-modal" class="modal-backdrop visible">
       <div class="modal-card">
         <h1>Đảo Đèn Lồng</h1>
-        <p>Theo chân Mây vượt qua Ba Hòn Đảo trong sương đen: Đảo Bến, Đảo Cau và Đảo Chuông — thắp lại toàn bộ Đèn Lồng Lớn đón Bình Minh.</p>
+        <p>Theo chân Mây giữ vững ánh sáng qua Ba Hòn Đảo (Đảo Bến, Đảo Cau, Đảo Chuông) tới tận Bình Minh.</p>
         <div class="btn-stack">
           <button id="btn-play-campaign" class="btn primary" type="button">Bắt đầu hành trình (3 Đêm)</button>
           <div class="btn-row">
@@ -272,7 +330,8 @@
             <button class="btn night-select" data-night="2" type="button">Đêm 2</button>
             <button class="btn night-select" data-night="3" type="button">Đêm 3</button>
           </div>
-          <button id="btn-menu-settings" class="btn" type="button">Cài đặt</button>
+          <button id="btn-menu-leaderboard" class="btn" type="button">Bảng xếp hạng</button>
+          <button id="btn-menu-settings" class="btn" type="button">Cài đặt & Tiếp cận</button>
         </div>
       </div>
     </div>
@@ -290,20 +349,20 @@
     <div id="pause-modal" class="modal-backdrop">
       <div class="modal-card">
         <h2>Tạm dừng</h2>
-        <p>Thời gian và mọi sinh vật trên đảo đang đứng yên.</p>
+        <p>Thời gian, nhiên liệu đèn và mọi sinh vật trên đảo đang đứng yên.</p>
         <div class="btn-stack">
           <button id="btn-resume" class="btn primary" type="button">Tiếp tục</button>
           <button id="btn-pause-restart" class="btn" type="button">Chơi lại Đêm</button>
-          <button id="btn-pause-settings" class="btn" type="button">Cài đặt</button>
+          <button id="btn-pause-settings" class="btn" type="button">Cài đặt & Tiếp cận</button>
           <button id="btn-pause-menu" class="btn" type="button">Về menu</button>
         </div>
       </div>
     </div>
 
-    <!-- Settings Modal -->
+    <!-- Settings & Accessibility Modal -->
     <div id="settings-modal" class="modal-backdrop">
       <div class="modal-card">
-        <h2>Cài đặt</h2>
+        <h2>Cài đặt & Tiếp cận</h2>
         <div class="setting-row">
           <label for="volume-slider">Âm lượng: <span id="volume-val">65%</span></label>
           <input id="volume-slider" type="range" min="0" max="100" value="65" />
@@ -314,9 +373,45 @@
         </div>
         <div class="setting-row checkbox-row">
           <input id="colorblind-toggle" type="checkbox" />
-          <label for="colorblind-toggle" style="cursor:pointer">Bảng màu dễ phân biệt (Chế độ mù màu)</label>
+          <label for="colorblind-toggle">Bảng màu dễ phân biệt (Mù màu)</label>
         </div>
-        <button id="btn-settings-close" class="btn primary" type="button" style="width:100%">Lưu & Quay lại</button>
+        <div class="setting-row checkbox-row">
+          <input id="reduce-motion-toggle" type="checkbox" />
+          <label for="reduce-motion-toggle">Giảm chuyển động (tắt rung & nhấp nháy)</label>
+        </div>
+        <div class="setting-row checkbox-row">
+          <input id="large-text-toggle" type="checkbox" />
+          <label for="large-text-toggle">Chữ lớn (×1.25)</label>
+        </div>
+
+        <h2 style="margin-top:10px">Đổi phím điều khiển</h2>
+        <div id="keybind-grid" class="keybind-grid"></div>
+        <div id="keybind-warning"></div>
+
+        <div class="btn-stack">
+          <button id="btn-reset-keys" class="btn" type="button">Khôi phục mặc định</button>
+          <button id="btn-settings-close" class="btn primary" type="button">Lưu & Quay lại</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal-backdrop">
+      <div class="modal-card">
+        <h2>Bảng xếp hạng (Top 10)</h2>
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tên</th>
+              <th>Điểm</th>
+              <th>Đêm thắng</th>
+              <th>Seed</th>
+            </tr>
+          </thead>
+          <tbody id="lb-tbody"></tbody>
+        </table>
+        <button id="btn-lb-close" class="btn primary" type="button" style="width:100%">Đóng</button>
       </div>
     </div>
 
@@ -326,6 +421,15 @@
         <h2 id="result-title">Hoàn thành Đêm!</h2>
         <p id="result-desc"></p>
         <div id="result-stats" class="stats-box"></div>
+
+        <div id="lb-submit-area">
+          <div class="lb-form">
+            <input id="lb-name-input" class="lb-input" type="text" maxlength="12" placeholder="Nhập tên (3-12 ký tự)" />
+            <button id="btn-lb-save" class="btn primary" type="button">Lưu điểm</button>
+          </div>
+          <div id="lb-save-msg"></div>
+        </div>
+
         <div class="btn-stack">
           <button id="btn-result-primary" class="btn primary" type="button">Đêm tiếp theo</button>
           <button id="btn-result-menu" class="btn" type="button">Về menu chính</button>

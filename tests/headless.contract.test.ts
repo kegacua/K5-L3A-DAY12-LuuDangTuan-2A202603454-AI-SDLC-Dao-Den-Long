@@ -32,7 +32,7 @@ afterAll(() => {
   if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('Headless CLI Test Contract v1.2 (Phase 1-2 Regression + Phase 3 Features)', () => {
+describe('Headless CLI Test Contract v1.3 (Phase 1-3 Regression + Phase 4 Release)', () => {
   it('Phase 3: dawn_survived scenario (no early win when all 5 lit; wins at dawn with exact v1.2 snapshot fields)', () => {
     const outPath = join(tmpDir, 'p3-dawn.jsonl');
     const res = runCli([
