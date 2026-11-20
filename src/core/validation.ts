@@ -21,6 +21,7 @@ const VALID_SHADE_STATES = new Set<ShadeStateName>([
   'chase',
   'recoil',
   'stunned',
+  'drain',
 ]);
 
 const VALID_DRIFTER_STATES = new Set<DrifterStateName>([
@@ -133,6 +134,12 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
     }
     if (raw.player.flames !== undefined) {
       scenario.player.flames = assertNonNegInt(raw.player.flames, 'scenario.player.flames');
+    }
+    if (raw.player.successful_lights !== undefined) {
+      scenario.player.successful_lights = assertNonNegInt(
+        raw.player.successful_lights,
+        'scenario.player.successful_lights',
+      );
     }
     if (raw.player.invuln_ticks !== undefined) {
       scenario.player.invuln_ticks = assertNonNegInt(
@@ -250,11 +257,19 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
           `scenario.shades[${idx}].state_ticks_left`,
         );
       }
+      let targetLanternId: string | null | undefined;
+      if (item.target_lantern_id !== undefined) {
+        if (item.target_lantern_id !== null && typeof item.target_lantern_id !== 'string') {
+          throw new ContractInputError(`scenario.shades[${idx}].target_lantern_id must be string or null`);
+        }
+        targetLanternId = item.target_lantern_id;
+      }
       return {
         ...(item.id !== undefined ? { id: item.id } : {}),
         pos,
         ...(state !== undefined ? { state } : {}),
         ...(stateTicksLeft !== undefined ? { state_ticks_left: stateTicksLeft } : {}),
+        ...(targetLanternId !== undefined ? { target_lantern_id: targetLanternId } : {}),
       };
     });
   }
@@ -270,9 +285,14 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       if (typeof item.id !== 'string' || item.id.length === 0) {
         throw new ContractInputError(`scenario.lanterns[${idx}].id must be a non-empty string`);
       }
-      const out: { id: string; pos?: Vec3Tuple; deposited?: number; lit?: boolean } = {
-        id: item.id,
-      };
+      const out: {
+        id: string;
+        pos?: Vec3Tuple;
+        deposited?: number;
+        lit?: boolean;
+        fuel?: number;
+        ever_lit?: boolean;
+      } = { id: item.id };
       if (item.pos !== undefined) {
         out.pos = assertVec3(item.pos, `scenario.lanterns[${idx}].pos`);
       }
@@ -284,6 +304,23 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
           throw new ContractInputError(`scenario.lanterns[${idx}].lit must be a boolean`);
         }
         out.lit = item.lit;
+      }
+      if (item.fuel !== undefined) {
+        if (
+          typeof item.fuel !== 'number' ||
+          !Number.isFinite(item.fuel) ||
+          item.fuel < 0 ||
+          item.fuel > 100
+        ) {
+          throw new ContractInputError(`scenario.lanterns[${idx}].fuel must be in [0, 100]`);
+        }
+        out.fuel = item.fuel;
+      }
+      if (item.ever_lit !== undefined) {
+        if (typeof item.ever_lit !== 'boolean') {
+          throw new ContractInputError(`scenario.lanterns[${idx}].ever_lit must be a boolean`);
+        }
+        out.ever_lit = item.ever_lit;
       }
       return out;
     });
@@ -345,7 +382,11 @@ export function validateScenarioConfig(raw: unknown): ScenarioConfig {
       }
       let respawnS: number | undefined;
       if (item.respawn_s !== undefined) {
-        if (typeof item.respawn_s !== 'number' || !Number.isFinite(item.respawn_s) || item.respawn_s < 0) {
+        if (
+          typeof item.respawn_s !== 'number' ||
+          !Number.isFinite(item.respawn_s) ||
+          item.respawn_s < 0
+        ) {
           throw new ContractInputError(`scenario.charms[${idx}].respawn_s must be non-negative`);
         }
         respawnS = item.respawn_s;

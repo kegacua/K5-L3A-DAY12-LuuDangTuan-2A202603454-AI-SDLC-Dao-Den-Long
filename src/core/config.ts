@@ -7,7 +7,7 @@ export const DEFAULT_TUNING: TuningConfig = GAME_CONTRACT.tuning;
 export const TICK_RATE = 60;
 export const FIXED_DT = 1 / TICK_RATE;
 
-// Standardized movement & combat constants (Ticket-02 Part 1)
+// Standardized movement & combat constants (Ticket-02 + Ticket-03)
 export const JUMP_VELOCITY = 7.0;
 export const GRAVITY = 20.0;
 export const CHARM_PLAYER_SPEED = 7.2;
@@ -18,6 +18,9 @@ export const PICKUP_MAX_DY = 1.5;
 export const SHADE_HIT_MAX_DY = 1.5;
 export const SHADE_DETECT_RADIUS = 12.0;
 export const SHADE_DROP_CHASE_RADIUS = 18.0;
+export const SHADE_DRAIN_RADIUS = 2.0;
+export const SHADE_DRAIN_ALERT_PLAYER_RADIUS = 6.0;
+export const SHADE_DRAIN_EVENT_INTERVAL_TICKS = 60;
 export const SHADE_WANDER_SPEED = 2.0;
 export const SHADE_NIGHT3_SPEED = 4.5;
 export const SHADE_SPAWN_DELAY_TICKS = 30;
@@ -25,6 +28,13 @@ export const SHADE_RECOIL_TICKS = 60;
 export const SHADE_RECOIL_DIST = 2.0;
 export const SHADE_MIN_SPAWN_PLAYER_DIST = 15.0;
 export const SAFE_PUSH_MAX_TICKS = 30;
+
+// Ticket-03 Fuel & Scoring constants
+export const FUEL_UNITS_PER_POINT = 60; // exact integer 1/60 units
+export const SCORE_RELIGHT = 40;
+export const SCORE_PULSE_DRAINING_SHADE = 15;
+export const SCORE_DAWN_LIT_LANTERN_BASE = 50;
+export const CAPACITY_BONUS_PER_LIGHT = 2;
 
 export const PULSE_CENTER_Y_OFFSET = 0.8;
 export const PULSE_PUSH_TICKS = 15;
@@ -67,4 +77,14 @@ export function getNightDurationS(night: NightId, tuning: TuningConfig = DEFAULT
 
 export function getShadeSpeed(night: NightId, tuning: TuningConfig = DEFAULT_TUNING): number {
   return night === 3 ? SHADE_NIGHT3_SPEED : tuning.shade_speed;
+}
+
+export function getPlayerCapacity(
+  successfulLights: number,
+  tuning: TuningConfig = DEFAULT_TUNING,
+): number {
+  return Math.min(
+    tuning.capacity_max,
+    tuning.carry_capacity + CAPACITY_BONUS_PER_LIGHT * successfulLights,
+  );
 }

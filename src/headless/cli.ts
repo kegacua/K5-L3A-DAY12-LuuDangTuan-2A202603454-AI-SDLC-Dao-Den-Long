@@ -80,7 +80,7 @@ function parseArgs(argv: string[]): CliArgs {
   if (seed === undefined) throw new CliUsageError('Missing required argument: --seed');
   if (night === undefined) throw new CliUsageError('Missing required argument: --night');
   if (night !== 1 && night !== 2 && night !== 3) {
-    throw new CliUsageError(`Unsupported --night ${night} (Contract v1.1 supports 1, 2, 3)`);
+    throw new CliUsageError(`Unsupported --night ${night} (Contract v1.2 supports 1, 2, 3)`);
   }
   if (ticks === undefined || ticks < 0) {
     throw new CliUsageError('Missing or negative required argument: --ticks');
